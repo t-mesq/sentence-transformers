@@ -1,11 +1,11 @@
-# Tranformer-based Denoising AutoEncoder (TSDAE)
+# TSDAE
 
 This folder shows an example, how can we train an unsupervised [TSDAE (Tranformer-based Denoising AutoEncoder)](https://arxiv.org/abs/2104.06979) model with pure sentences as training data.
 
 ## Background 
 During training, TSDAE encodes damaged sentences into fixed-sized vectors and requires the decoder to recon-struct  the  original  sentences  from  this  sentenceembeddings. For good reconstruction quality, thesemantics must be captured well in the sentenceembeddings from the encoder. Later, at inference,we only use the encoder for creating sentence embeddings. The architecture is illustrated in the figure below:
 
-![](TSDAE.png)
+![](https://raw.githubusercontent.com/UKPLab/sentence-transformers/master/docs/img/TSDAE.png)
 
 ## Unsupervised Training with TSDAE
 Training with TSDAE is simple. You just need a set of sentences:
@@ -44,9 +44,18 @@ model.fit(
     optimizer_params={'lr': 3e-5},
     show_progress_bar=True
 )
+
+model.save('output/tsdae-model')
 ``` 
 
-## TSDAE on AskUbuntu
+## TSDAE from Sentences File
+
+**[train_tsdae_from_file.py](train_tsdae_from_file.py)** loads sentences from a provided text file. It is expected, that the there is one sentence per line in that text file.
+
+TSDAE will be training using these sentences. Checkpoints are stored every 500 steps to the output folder.
+
+
+## TSDAE on AskUbuntu Dataset
 The [AskUbuntu dataset](https://github.com/taolei87/askubuntu) is a manually annotated dataset for the [AskUbuntu forum](https://askubuntu.com/). For 400 questions, experts annotated for each question 20 other questions if they are related or not. The questions are split into train & development set.
 
 **[train_askubuntu_tsdae.py](train_askubuntu_tsdae.py)** - Shows an example how to train a model on AskUbuntu using only sentences without any labels. As sentences, we use the titles that are not used in the dev / test set. 

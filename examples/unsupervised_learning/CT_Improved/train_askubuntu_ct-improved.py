@@ -1,12 +1,12 @@
 
-from sentence_transformers import SentenceTransformer, LoggingHandler
-from sentence_transformers import models, util, datasets, evaluation, losses
+from sentence_transformers import SentenceTransformer, LoggingHandler, InputExample
+from sentence_transformers import models, util, evaluation, losses
 import logging
 import os
 import gzip
-from torch.utils.data import DataLoader
 from datetime import datetime
-import sys
+import torch
+from torch.utils.data import DataLoader
 
 #### Just some code to print debug information to stdout
 logging.basicConfig(format='%(asctime)s - %(message)s',
@@ -15,10 +15,17 @@ logging.basicConfig(format='%(asctime)s - %(message)s',
                     handlers=[LoggingHandler()])
 #### /print debug information to stdout
 
+# Some training parameters. We use a batch size of 16, for every positive example we include 8-1=7 negative examples
+# Sentences are truncated to 75 word pieces
+## Training parameters
+model_name = 'distilbert-base-uncased'
+batch_size = 128
+epochs = 1
+max_seq_length = 75
+
 ################# Download AskUbuntu and extract training corpus  #################
-askubuntu_folder = 'data/askubuntu'
-result_folder = 'output/askubuntu-tsdae-'+datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-batch_size = 8
+askubuntu_folder = 'askubuntu'
+output_path = 'output/train_askubuntu_ct-improved-{}-{}-{}'.format(model_name, batch_size, datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
 
 ## Download the AskUbuntu dataset from https://github.com/taolei87/askubuntu
 for filename in ['text_tokenized.txt.gz', 'dev.txt', 'test.txt', 'train_random.txt']:
@@ -66,47 +73,44 @@ test_dataset = read_eval_dataset(os.path.join(askubuntu_folder, 'test.txt'))
 train_sentences = []
 for id, sentence in corpus.items():
     if id not in dev_test_ids:
-        train_sentences.append(sentence)
-
+        train_sentences.append(InputExample(texts=[sentence, sentence]))
 
 logging.info("{} train sentences".format(len(train_sentences)))
 
 ################# Intialize an SBERT model #################
-model_name = sys.argv[1] if len(sys.argv) >= 2 else 'bert-base-uncased'
-word_embedding_model = models.Transformer(model_name)
-# Apply **cls** pooling to get one fixed sized sentence vector
-pooling_model = models.Pooling(word_embedding_model.get_word_embedding_dimension(),
-                               pooling_mode_mean_tokens=False,
-                               pooling_mode_cls_token=True,
-                               pooling_mode_max_tokens=False)
+
+word_embedding_model = models.Transformer(model_name, max_seq_length=max_seq_length)
+pooling_model = models.Pooling(word_embedding_model.get_word_embedding_dimension())
 model = SentenceTransformer(modules=[word_embedding_model, pooling_model])
 
-################# Train and evaluate the model (it needs about 1 hour for one epoch of AskUbuntu) #################
-# We wrap our training sentences in the DenoisingAutoEncoderDataset to add deletion noise on the fly
-train_dataset = datasets.DenoisingAutoEncoderDataset(train_sentences)
-train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
-train_loss = losses.DenoisingAutoEncoderLoss(model, decoder_name_or_path=model_name, tie_encoder_decoder=True)
+################# Train the model #################
+
+# For ContrastiveTension we need a special data loader to construct batches with the desired properties
+train_dataloader = DataLoader(train_sentences, batch_size=batch_size, shuffle=True, drop_last=True)
+
+# As loss, we losses.ContrastiveTensionLoss
+train_loss = losses.ContrastiveTensionLossInBatchNegatives(model)
 
 # Create a dev evaluator
 dev_evaluator = evaluation.RerankingEvaluator(dev_dataset, name='AskUbuntu dev')
+test_evaluator = evaluation.RerankingEvaluator(test_dataset, name='AskUbuntu test')
 
-logging.info("Dev performance before training")
-dev_evaluator(model)
 
-total_steps = 20000
+
 logging.info("Start training")
+
 model.fit(
     train_objectives=[(train_dataloader, train_loss)],
-    evaluator=dev_evaluator,
-    evaluation_steps=1000,
     epochs=1,
-    steps_per_epoch=total_steps,
-    weight_decay=0,
-    scheduler='constantlr',
-    optimizer_params={'lr': 3e-5},
-    output_path=result_folder,
-    show_progress_bar=True
+    warmup_steps=100,
+    use_amp=True    #Set to True, if your GPU has optimized FP16 cores
 )
 
+latest_output_path = output_path + "-latest"
+model.save(latest_output_path)
+
+### Run test evaluation on the latest model. This is equivalent to not having a dev dataset
+model = SentenceTransformer(latest_output_path)
+test_evaluator(model)
 
 
