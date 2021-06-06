@@ -1,4 +1,4 @@
-from ..evaluation import SentenceEvaluator
+from sentence_transformers.evaluation import SentenceEvaluator
 import torch
 from torch import Tensor
 import logging
@@ -6,6 +6,7 @@ from tqdm import tqdm, trange
 from sentence_transformers.util import cos_sim, dot_score
 import os
 import numpy as np
+import pandas as pd
 from typing import List, Tuple, Dict, Set, Callable
 
 logger = logging.getLogger(__name__)
@@ -64,16 +65,18 @@ class TemplateRetrievalEvaluator(SentenceEvaluator):
                  relevant_docs: Dict[str, Set[str]],  # qid => Set[cid]
                  corpus_chunk_size: int = 50000,
                  mrr_at_k: List[int] = [10, 1000],
-                 recall_at_k: List[int] = [1, 3, 5, 10, 20, 50, 100, 200, 500, 1000],
+                 recall_at_k: List[int] = [1, 3, 5, 10, 20, 50, 100, 200, 500],
                  show_progress_bar: bool = False,
                  batch_size: int = 32,
                  name: str = '',
                  write_csv: bool = True,
                  score_functions: Dict[str, Callable[[Tensor, Tensor], Tensor]] = {'cos_sim': cos_sim, 'dot_score': dot_score},  # Score function, higher=more similar
                  main_score_function: str = None,
-                 main_score_metric: str = 'recall@3'
+                 main_score_metric: str = 'recall@3',
+                 compute_macro_metrics: bool = True
                  ):
 
+        self.compute_macro_metrics = compute_macro_metrics
         self.queries_ids = []
         for qid in queries:
             if qid in relevant_docs and len(relevant_docs[qid]) > 0:
@@ -185,11 +188,9 @@ class TemplateRetrievalEvaluator(SentenceEvaluator):
 
             output_data = [epoch, steps]
             for name in self.score_function_names:
-                for k in self.recall_at_k:
-                    output_data.append(scores[name]['recall@k'][k])
-
-                for k in self.mrr_at_k:
-                    output_data.append(scores[name]['mrr@k'][k])
+                for metric in scores[name]:
+                    for k in scores[name][metric]:
+                        output_data.append(scores[name][metric][k])
 
             fOut.write(",".join(map(str, output_data)))
             fOut.write("\n")
@@ -204,7 +205,10 @@ class TemplateRetrievalEvaluator(SentenceEvaluator):
     def compute_metrics(self, queries_result_list: List[object]):
         # Init score computation values
         recall_at_k = {k: [] for k in self.recall_at_k}
-        MRR = {k: 0 for k in self.mrr_at_k}
+        MRR = {k: [] for k in self.mrr_at_k}
+        if self.compute_macro_metrics:
+            Mrecall_at_k = {k: [] for k in self.recall_at_k}
+            MMRR = {k: [] for k in self.mrr_at_k}
 
         # Compute scores on results
         for query_itr in range(len(queries_result_list)):
@@ -220,6 +224,7 @@ class TemplateRetrievalEvaluator(SentenceEvaluator):
                 for hit in top_hits[0:k_val]:
                     if hit['corpus_id'] in query_relevant_docs:
                         num_correct += 1
+                        if self.compute_macro_metrics:
 
                 recall_at_k[k_val].append(num_correct / len(query_relevant_docs))
 

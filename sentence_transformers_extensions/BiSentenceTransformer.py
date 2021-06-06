@@ -1,27 +1,13 @@
-import json
 import logging
 import os
 import shutil
-from collections import OrderedDict
-from typing import List, Dict, Tuple, Iterable, Type, Union, Callable
-from zipfile import ZipFile
-import requests
-import numpy as np
+from typing import List, Dict, Union
 from numpy import ndarray
-import transformers
 import torch
-from torch import nn, Tensor, device
-from torch.optim import Optimizer
-from torch.utils.data import DataLoader
-import torch.multiprocessing as mp
-from tqdm.autonotebook import trange
-import math
-import queue
+from torch import Tensor
 
-from .evaluation import SentenceEvaluator
-from .util import import_from_string, batch_to_device, http_get
-from .models import Transformer, Pooling
-from sentence_transformers import SentenceTransformer, __version__
+from sentence_transformers.util import batch_to_device
+from sentence_transformers import SentenceTransformer
 
 QUERY_ENCODER_FOLDER = 'query_encoder'
 DOCUMENT_ENCODER_FOLDER = 'document_encoder'
@@ -142,11 +128,7 @@ class BiSentenceTransformer(SentenceTransformer):
         return self._get_encoder(encoder)._first_module().get_sentence_features(*features)
 
     def get_sentence_embedding_dimension(self):
-        for mod in reversed(self._modules.values()):
-            sent_embedding_dim_method = getattr(mod, "get_sentence_embedding_dimension", None)
-            if callable(sent_embedding_dim_method):
-                return sent_embedding_dim_method()
-        return None
+        raise NotImplementedError
 
     def _get_encoder(self, encoder_str):
         return self.query_encoder if encoder_str == 'query' else self.document_encoder

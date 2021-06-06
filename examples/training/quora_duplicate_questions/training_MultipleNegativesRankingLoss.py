@@ -13,8 +13,8 @@ The model we get works well for duplicate questions mining and for duplicate que
 
 from torch.utils.data import DataLoader
 from sentence_transformers import losses, util
-from sentence_transformers import LoggingHandler, SentenceTransformer, evaluation
-from sentence_transformers.readers import InputExample
+from sentence_transformers import LoggingHandler, SentenceTransformer, evaluation, BiSentenceTransformer
+from sentence_transformers.readers import IRInputExample
 import logging
 from datetime import datetime
 import csv
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 #As base model, we use DistilBERT-base that was pre-trained on NLI and STSb data
-model = SentenceTransformer('stsb-distilbert-base')
+model = BiSentenceTransformer(query_encoder=SentenceTransformer('stsb-distilbert-base'), document_encoder=SentenceTransformer('stsb-distilbert-base'))
 
 #Training for multiple epochs can be beneficial, as in each epoch a mini-batch is sampled differently
 #hence, we get different negatives for each positive
@@ -40,7 +40,7 @@ num_epochs = 10
 
 #Increasing the batch size improves the performance for MultipleNegativesRankingLoss. Choose it as large as possible
 #I achieved the good results with a batch size of 300-350 (requires about 30 GB of GPU memory)
-train_batch_size = 64
+train_batch_size = 8
 
 dataset_path = 'quora-IR-dataset'
 model_save_path = 'output/training_MultipleNegativesRankingLoss-'+datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -62,13 +62,13 @@ with open(os.path.join(dataset_path, "classification/train_pairs.tsv"), encoding
     reader = csv.DictReader(fIn, delimiter='\t', quoting=csv.QUOTE_NONE)
     for row in reader:
         if row['is_duplicate'] == '1':
-            train_samples.append(InputExample(texts=[row['question1'], row['question2']], label=1))
-            train_samples.append(InputExample(texts=[row['question2'], row['question1']], label=1)) #if A is a duplicate of B, then B is a duplicate of A
+            train_samples.append(IRInputExample(texts=[row['question1'], row['question2'], row['question2']], label=1))
+            train_samples.append(IRInputExample(texts=[row['question2'], row['question1'], row['question2']], label=1)) #if A is a duplicate of B, then B is a duplicate of A
 
 
 # After reading the train_samples, we create a DataLoader
 train_dataloader = DataLoader(train_samples, shuffle=True, batch_size=train_batch_size)
-train_loss = losses.MultipleNegativesRankingLoss(model)
+train_loss = losses.MeanAveragePrecisionLoss(model, positives=1, agg_fct=losses.agg_in_batch_negatives)
 
 
 ################### Development  Evaluators ##################
@@ -179,7 +179,7 @@ seq_evaluator = evaluation.SequentialEvaluator(evaluators, main_score_function=l
 
 
 logger.info("Evaluate model without training")
-seq_evaluator(model, epoch=0, steps=0, output_path=model_save_path)
+# seq_evaluator(model, epoch=0, steps=0, output_path=model_save_path)
 
 
 # Train the model

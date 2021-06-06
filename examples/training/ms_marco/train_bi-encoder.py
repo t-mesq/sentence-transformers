@@ -158,7 +158,7 @@ class TripletsDataset(IterableDataset):
 # For training the SentenceTransformer model, we need a dataset, a dataloader, and a loss used for training.
 train_dataset = TripletsDataset(model=model, queries=queries, corpus=corpus, triplets_file=train_filepath)
 train_dataloader = DataLoader(train_dataset, shuffle=False, batch_size=train_batch_size)
-train_loss = losses.MultipleNegativesRankingLoss(model=model)
+train_loss = losses.MultiplePositivesAndNegativesRankingLoss(model=model, positives=1, agg_fct=losses.agg_in_batch_negatives)
 
 # Train the model
 model.fit(train_objectives=[(train_dataloader, train_loss)],
