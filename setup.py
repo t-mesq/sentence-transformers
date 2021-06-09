@@ -25,7 +25,8 @@ setup(
         'scikit-learn',
         'scipy',
         'nltk',
-        'sentencepiece'
+        'sentencepiece',
+        'torchsort'
     ],
     classifiers=[
         "Development Status :: 4 - Beta",
