@@ -13,8 +13,11 @@ The model we get works well for duplicate questions mining and for duplicate que
 
 from torch.utils.data import DataLoader
 from sentence_transformers import losses, util
-from sentence_transformers import LoggingHandler, SentenceTransformer, evaluation, BiSentenceTransformer
-from sentence_transformers.readers import IRInputExample
+from sentence_transformers import LoggingHandler, SentenceTransformer, evaluation
+from sentence_transformers_extensions import BiSentenceTransformer
+from sentence_transformers_extensions.readers import IRInputExample
+from sentence_transformers_extensions.losses import MeanAveragePrecisionLoss, TransposedMultiplePositivesAndNegativesRankingLoss, agg_in_batch_negatives, MultiplePositivesAndNegativesRankingLoss
+from sentence_transformers_extensions.losses.MNRL import MNRL
 import logging
 from datetime import datetime
 import csv
@@ -62,13 +65,13 @@ with open(os.path.join(dataset_path, "classification/train_pairs.tsv"), encoding
     reader = csv.DictReader(fIn, delimiter='\t', quoting=csv.QUOTE_NONE)
     for row in reader:
         if row['is_duplicate'] == '1':
-            train_samples.append(IRInputExample(texts=[row['question1'], row['question2'], row['question2']], label=1))
-            train_samples.append(IRInputExample(texts=[row['question2'], row['question1'], row['question2']], label=1)) #if A is a duplicate of B, then B is a duplicate of A
+            train_samples.append(IRInputExample(texts=[row['question1'], row['question1'][:-10], row['question2'], row['question2'][:-10]], label=1))
+            # train_samples.append(IRInputExample(texts=[row['question2'], row['question1'], row['question2']], label=1)) #if A is a duplicate of B, then B is a duplicate of A
 
 
 # After reading the train_samples, we create a DataLoader
 train_dataloader = DataLoader(train_samples, shuffle=True, batch_size=train_batch_size)
-train_loss = losses.MeanAveragePrecisionLoss(model, positives=1, agg_fct=losses.agg_in_batch_negatives)
+train_loss = MultiplePositivesAndNegativesRankingLoss(model, positives=2)
 
 
 ################### Development  Evaluators ##################

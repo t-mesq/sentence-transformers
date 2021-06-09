@@ -3,10 +3,10 @@ from torch import nn, Tensor
 from typing import Iterable, Dict
 from sentence_transformers.SentenceTransformer import SentenceTransformer
 from sentence_transformers import util
-from . import AggregatedModularLoss, agg_in_batch_negatives
+from . import MultiplePositivesAndNegativesRankingLoss, agg_in_batch_negatives
 
 
-class MultiplePositivesAndNegativesRankingLoss(AggregatedModularLoss):
+class TransposedMultiplePositivesAndNegativesRankingLoss(MultiplePositivesAndNegativesRankingLoss):
     """
         This loss expects as input a batch consisting of sentence pairs (a_1, p_1), (a_2, p_2)..., (a_n, p_n)
         where we assume that (a_i, p_i) are a positive pair and (a_i, p_j) for i!=j a negative pair.
@@ -46,7 +46,8 @@ class MultiplePositivesAndNegativesRankingLoss(AggregatedModularLoss):
         :param scale: Output of similarity function is multiplied by scale value
         :param similarity_fct: similarity function between sentence embeddings. By default, cos_sim. Can also be set to dot product (and then set sclae to 1)
         """
-        super(MultiplePositivesAndNegativesRankingLoss, self).__init__(model=model, scale=scale, similarity_fct=similarity_fct, agg_fct=agg_fct, loss_fct=None, positives=positives)
+        assert agg_fct == agg_in_batch_negatives
+        super(TransposedMultiplePositivesAndNegativesRankingLoss, self).__init__(model=model, scale=scale, similarity_fct=similarity_fct, agg_fct=agg_in_batch_negatives, positives=positives)
         self.cross_entropy_loss = nn.CrossEntropyLoss()
 
     def calc_loss(self, scores, labels):
@@ -55,6 +56,6 @@ class MultiplePositivesAndNegativesRankingLoss(AggregatedModularLoss):
 
         adjusted_labels = labels.transpose(0, 1).flatten()
         labels_mask = repeated_labels[repeated_labels != adjusted_labels.unsqueeze(-1)].reshape(repeated_labels[:, 1:].shape)
-        adjusted_scores = repeated_scores * torch.ones_like(repeated_scores).scatter(1, labels_mask, -1)
+        adjusted_scores = repeated_scores.scatter(1, labels_mask, 0)
         return self.cross_entropy_loss(adjusted_scores, adjusted_labels)
 

@@ -73,9 +73,11 @@ class TemplateRetrievalEvaluator(SentenceEvaluator):
                  score_functions: Dict[str, Callable[[Tensor, Tensor], Tensor]] = {'cos_sim': cos_sim, 'dot_score': dot_score},  # Score function, higher=more similar
                  main_score_function: str = None,
                  main_score_metric: str = 'recall@3',
-                 compute_macro_metrics: bool = True
+                 compute_macro_metrics: bool = True,
+                 bi_sbert=False,
                  ):
 
+        self.bi_sbert = bi_sbert
         self.compute_macro_metrics = compute_macro_metrics
         self.queries_ids = []
         for qid in queries:
@@ -114,6 +116,12 @@ class TemplateRetrievalEvaluator(SentenceEvaluator):
 
             for k in mrr_at_k:
                 self.csv_headers.append("{}-MRR@{}".format(score_name, k))
+
+            if self.compute_macro_metrics:
+                for k in recall_at_k:
+                    self.csv_headers.append("{}-M_Recall@{}".format(score_name, k))
+                for k in mrr_at_k:
+                    self.csv_headers.append("{}-M_MRR@{}".format(score_name, k))
 
     def __call__(self, model, output_path: str = None, epoch: int = -1, steps: int = -1, corpus_model=None, corpus_embeddings: Tensor = None) -> MetricsScore:
         if epoch != -1:
@@ -179,12 +187,9 @@ class TemplateRetrievalEvaluator(SentenceEvaluator):
         if output_path is not None and self.write_csv:
             csv_path = os.path.join(output_path, self.csv_file)
             if not os.path.isfile(csv_path):
-                fOut = open(csv_path, mode="w", encoding="utf-8")
-                fOut.write(",".join(self.csv_headers))
-                fOut.write("\n")
-
+                csv_df = pd.DataFrame(columns=self.csv_headers)
             else:
-                fOut = open(csv_path, mode="a", encoding="utf-8")
+                csv_df = pd.read_csv(csv_path)
 
             output_data = [epoch, steps]
             for name in self.score_function_names:
@@ -192,9 +197,9 @@ class TemplateRetrievalEvaluator(SentenceEvaluator):
                     for k in scores[name][metric]:
                         output_data.append(scores[name][metric][k])
 
-            fOut.write(",".join(map(str, output_data)))
-            fOut.write("\n")
-            fOut.close()
+            csv_df = csv_df.append(dict(zip(self.csv_headers, output_data)), ignore_index=True)
+            csv_df.reindex(columns=self.csv_headers)
+            csv_df.to_csv(csv_path, index=False)
 
         if self.main_score_function is None:
             score = max([scores[name][self.main_score_metric['metric']][self.main_score_metric['k']] for name in self.score_function_names])
@@ -206,9 +211,6 @@ class TemplateRetrievalEvaluator(SentenceEvaluator):
         # Init score computation values
         recall_at_k = {k: [] for k in self.recall_at_k}
         MRR = {k: [] for k in self.mrr_at_k}
-        if self.compute_macro_metrics:
-            Mrecall_at_k = {k: [] for k in self.recall_at_k}
-            MMRR = {k: [] for k in self.mrr_at_k}
 
         # Compute scores on results
         for query_itr in range(len(queries_result_list)):
@@ -224,25 +226,26 @@ class TemplateRetrievalEvaluator(SentenceEvaluator):
                 for hit in top_hits[0:k_val]:
                     if hit['corpus_id'] in query_relevant_docs:
                         num_correct += 1
-                        if self.compute_macro_metrics:
 
                 recall_at_k[k_val].append(num_correct / len(query_relevant_docs))
 
             # MRR@k
             for k_val in self.mrr_at_k:
-                for rank, hit in enumerate(top_hits[0:k_val]):
+                MRR_val = 0
+                for rank, hit in enumerate(top_hits[0:k_val], start=1):
                     if hit['corpus_id'] in query_relevant_docs:
-                        MRR[k_val] += 1.0 / (rank + 1)
+                        MRR_val = 1.0 / rank
                         break
+                MRR[k_val].append(MRR_val)  # Compute averages
 
-        # Compute averages
-        for k in recall_at_k:
-            recall_at_k[k] = np.mean(recall_at_k[k])
+        recall_at_k, MRR = map(pd.DataFrame, (recall_at_k, MRR))
 
-        for k in MRR:
-            MRR[k] /= len(self.queries)
-
-        return {'recall@k': recall_at_k, 'mrr@k': MRR}
+        metric_scores = {'recall@k': recall_at_k.mean().to_dict(), 'mrr@k': MRR.mean().to_dict()}
+        if self.compute_macro_metrics:
+            d_ids = pd.Series(self.relevant_docs).map(lambda x: list(x)[0]).loc[self.queries_ids].values
+            macro_average = lambda metric_at_k: metric_at_k.assign(d_id=d_ids).dropna().groupby('d_id').agg(np.mean).mean().to_dict()   # computes mean per document and afterwards, the average of the means.
+            metric_scores.update({'M_recall@k': macro_average(recall_at_k), 'M_mrr@k': macro_average(MRR)})
+        return metric_scores
 
     def output_scores(self, scores):
         for k in scores['recall@k']:

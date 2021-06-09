@@ -1,9 +1,9 @@
-from ..evaluation import SentenceEvaluator
+from sentence_transformers.evaluation import SentenceEvaluator
 import torch
 from torch import Tensor
 import logging
 from tqdm import tqdm, trange
-from ..util import cos_sim, dot_score
+from sentence_transformers.util import cos_sim, dot_score
 import os
 import numpy as np
 from typing import List, Tuple, Dict, Set, Callable
