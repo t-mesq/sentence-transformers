@@ -1,96 +1,37 @@
 """
 
 """
+import math
+import pickle
 from torch.utils.data import  IterableDataset
 import numpy as np
-from typing import List
-from ..readers import InputExample
-import logging
+from ..readers import IRInputExample
+from .util import pop_and_append
+from sklearn.preprocessing import normalize
 
-logger = logging.getLogger(__name__)
 
-class SentenceLabelDataset(IterableDataset):
-    """
-    This dataset can be used for some specific Triplet Losses like BATCH_HARD_TRIPLET_LOSS which requires
-    multiple examples with the same label in a batch.
-
-    It draws n consecutive, random and unique samples from one label at a time. This is repeated for each label.
-
-    Labels with fewer than n unique samples are ignored.
-    This also applied to drawing without replacement, once less than n samples remain for a label, it is skipped.
-
-    This *DOES NOT* check if there are more labels than the batch is large or if the batch size is divisible
-    by the samples drawn per label.
-    """
-    def __init__(self, examples: List[InputExample], samples_per_label: int = 2, with_replacement: bool = False):
-        """
-        Creates a LabelSampler for a SentenceLabelDataset.
-
-        :param examples:
-            a list with InputExamples
-        :param samples_per_label:
-            the number of consecutive, random and unique samples drawn per label. Batch size should be a multiple of samples_per_label
-        :param with_replacement:
-            if this is True, then each sample is drawn at most once (depending on the total number of samples per label).
-            if this is False, then one sample can be drawn in multiple draws, but still not multiple times in the same
-            drawing.
-        """
-        super().__init__()
-
-        self.samples_per_label = samples_per_label
-
-        #Group examples by label
-        label2ex = {}
-        for example in examples:
-            if example.label not in label2ex:
-                label2ex[example.label] = []
-            label2ex[example.label].append(example)
-
-        #Include only labels with at least 2 examples
-        self.grouped_inputs = []
-        self.groups_right_border = []
-        num_labels = 0
-
-        for label, label_examples in label2ex.items():
-            if len(label_examples) >= self.samples_per_label:
-                self.grouped_inputs.extend(label_examples)
-                self.groups_right_border.append(len(self.grouped_inputs))  # At which position does this label group / bucket end?
-                num_labels += 1
-
-        self.label_range = np.arange(num_labels)
-        self.with_replacement = with_replacement
-        np.random.shuffle(self.label_range)
-
-        logger.info("SentenceLabelDataset: {} examples, from which {} examples could be used (those labels appeared at least {} times). {} different labels found.".format(len(examples), len(self.grouped_inputs), self.samples_per_label, num_labels ))
+class RoundRobinRankingDataset(IterableDataset):
+    def __init__(self, model, queries, corpus, rel_queries, batch_size=32, n_positives=2, temperature=1, shuffle=True, n_negatives=0):
+        self.model = model
+        self.queries = queries
+        self.corpus = corpus
+        self.rel_queries = pickle.loads(pickle.dumps(rel_queries))  # dirty copy
+        self.batch_size = batch_size
+        self.n_positives = n_positives
+        self.shuffle = shuffle
+        self.n_negatives = n_negatives
+        self.temperature_power = 1 / temperature
+        self.weights = self.rel_queries.map(len).agg(lambda x: normalize(np.array([x]) ** self.temperature_power, norm='l1')[0])
 
     def __iter__(self):
-        label_idx = 0
-        count = 0
-        already_seen = {}
-        while count < len(self.grouped_inputs):
-            label = self.label_range[label_idx]
-            if label not in already_seen:
-                already_seen[label] = set()
-
-            left_border = 0 if label == 0 else self.groups_right_border[label-1]
-            right_border = self.groups_right_border[label]
-
-            if self.with_replacement:
-                selection = np.arange(left_border, right_border)
-            else:
-                selection = [i for i in np.arange(left_border, right_border) if i not in already_seen[label]]
-
-            if len(selection) >= self.samples_per_label:
-                for element_idx in np.random.choice(selection, self.samples_per_label, replace=False):
-                    count += 1
-                    already_seen[label].add(element_idx)
-                    yield self.grouped_inputs[element_idx]
-
-            label_idx += 1
-            if label_idx >= len(self.label_range):
-                label_idx = 0
-                already_seen = {}
-                np.random.shuffle(self.label_range)
+        for batch_num in range(math.ceil(self.__len__() / self.batch_size)):
+            for d_id, q_ids in self.rel_queries.sample(self.batch_size, weights=self.weights).map(self.retrieve_and_roll).items():
+                d_mask = self.rel_queries.index != d_id
+                n_ids = [pop_and_append(self.rel_queries[d_mask].sample(1, weights=self.weights[d_mask]).iloc[0]) for _ in range(self.n_negatives)]
+                yield IRInputExample(texts=([self.corpus[d_id]] + [self.queries[q_id] for q_id in q_ids] + [self.queries[q_id] for q_id in n_ids]), label=batch_num, query_first=False)
 
     def __len__(self):
-        return len(self.grouped_inputs)
+        return len(self.queries) // self.n_positives
+
+    def retrieve_and_roll(self, x):
+        return [pop_and_append(x) for _ in range(self.n_positives)]
