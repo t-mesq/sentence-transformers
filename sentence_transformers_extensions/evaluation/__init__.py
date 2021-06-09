@@ -1,2 +1,2 @@
-from .QueryRetrievalEvaluator import *
 from .TemplateRetrievalEvaluator import *
+from .QueryRetrievalEvaluator import QueryRetrievalEvaluator
