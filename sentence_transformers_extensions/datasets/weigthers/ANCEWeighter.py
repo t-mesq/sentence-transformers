@@ -1,6 +1,7 @@
 from torch import Tensor
 
 from . import InformationRetrievalWeigther
+from ... import BiSentenceTransformer
 from sentence_transformers.util import cos_sim, semantic_search
 import numpy as np
 from typing import Dict, Callable
@@ -27,13 +28,18 @@ class ANCEWeighter(InformationRetrievalWeigther):
 
     def setup(self, model, queries: Dict[str, str], corpus: Dict[str, str], rel_queries: Dict[str, str], query_embeddings: Tensor = None, corpus_embeddings: Tensor = None):
 
+        query_args, document_args = {}, {}
+        if isinstance(model, BiSentenceTransformer):
+            query_args['encoder'] = 'query'
+            document_args['encoder'] = 'document'
+
         if query_embeddings is None:
             # Compute embedding for the queries
-            query_embeddings = model.encode(list(queries.values()), show_progress_bar=self.show_progress_bar, batch_size=self.batch_size, convert_to_tensor=True)
+            query_embeddings = model.encode(list(queries.values()), show_progress_bar=self.show_progress_bar, batch_size=self.batch_size, convert_to_tensor=True, **query_args)
 
         if corpus_embeddings is None:
             # Compute embedding for the corpus
-            corpus_embeddings = model.encode(list(map(corpus.get, rel_queries)), show_progress_bar=self.show_progress_bar, batch_size=self.batch_size, convert_to_tensor=True)
+            corpus_embeddings = model.encode(list(map(corpus.get, rel_queries)), show_progress_bar=self.show_progress_bar, batch_size=self.batch_size, convert_to_tensor=True, **document_args)
 
         queries_result_list = semantic_search(query_embeddings=query_embeddings,
                                               corpus_embeddings=corpus_embeddings,
