@@ -70,7 +70,7 @@ def agg_in_batch_negatives(modular_loss: ModularLoss, reps: Union[Tuple[Tensor, 
 def agg_unique(modular_loss: ModularLoss, reps: Union[Tuple[Tensor, ...], List[Tensor]]):
     embeddings_a = reps[0]
     embeddings_b = torch.stack(reps[1:])
-    scores = torch.stack([modular_loss.similarity_fct(embeddings_a[i], embeddings_b[:, i])[0] for i in range(len(embeddings_a))])
+    scores = torch.stack([modular_loss.similarity_fct(embeddings_a[i], embeddings_b[:, i])[0] for i in range(len(embeddings_a))])  * modular_loss.scale
     labels = torch.tensor(range(modular_loss.positives), dtype=torch.long, device=scores.device).repeat(len(embeddings_a), 1)
 
     return scores, labels

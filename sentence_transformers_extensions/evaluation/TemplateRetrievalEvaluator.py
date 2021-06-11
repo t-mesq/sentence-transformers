@@ -8,6 +8,7 @@ import os
 import numpy as np
 import pandas as pd
 from typing import List, Tuple, Dict, Set, Callable
+from .. import BiSentenceTransformer
 
 logger = logging.getLogger(__name__)
 
@@ -74,10 +75,8 @@ class TemplateRetrievalEvaluator(SentenceEvaluator):
                  main_score_function: str = None,
                  main_score_metric: str = 'recall@3',
                  compute_macro_metrics: bool = True,
-                 bi_sbert=False,
                  ):
 
-        self.bi_sbert = bi_sbert
         self.compute_macro_metrics = compute_macro_metrics
         self.queries_ids = []
         for qid in queries:
@@ -132,12 +131,17 @@ class TemplateRetrievalEvaluator(SentenceEvaluator):
         if corpus_model is None:
             corpus_model = model
 
+        query_args, document_args = {}, {}
+        if isinstance(model, BiSentenceTransformer):
+            query_args['encoder'] = 'query'
+            document_args['encoder'] = 'document'
+
         logger.info("Template Retrieval Evaluation on " + self.name + " dataset" + out_txt)
 
         max_k = max(max(self.mrr_at_k), max(self.recall_at_k))
 
         # Compute embedding for the queries
-        query_embeddings = model.encode(self.queries, show_progress_bar=self.show_progress_bar, batch_size=self.batch_size, convert_to_tensor=True)
+        query_embeddings = model.encode(self.queries, show_progress_bar=self.show_progress_bar, batch_size=self.batch_size, convert_to_tensor=True, **query_args)
 
         queries_result_list = {}
         for name in self.score_functions:
@@ -154,7 +158,7 @@ class TemplateRetrievalEvaluator(SentenceEvaluator):
 
             # Encode chunk of corpus
             if corpus_embeddings is None:
-                sub_corpus_embeddings = corpus_model.encode(self.corpus[corpus_start_idx:corpus_end_idx], show_progress_bar=False, batch_size=self.batch_size, convert_to_tensor=True)
+                sub_corpus_embeddings = corpus_model.encode(self.corpus[corpus_start_idx:corpus_end_idx], show_progress_bar=False, batch_size=self.batch_size, convert_to_tensor=True, **document_args)
             else:
                 sub_corpus_embeddings = corpus_embeddings[corpus_start_idx:corpus_end_idx]
 
