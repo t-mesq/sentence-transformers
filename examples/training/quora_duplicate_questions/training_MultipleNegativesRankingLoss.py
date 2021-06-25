@@ -17,7 +17,6 @@ from sentence_transformers import LoggingHandler, SentenceTransformer, evaluatio
 from sentence_transformers_extensions import BiSentenceTransformer
 from sentence_transformers_extensions.readers import IRInputExample
 from sentence_transformers_extensions.losses import MeanAveragePrecisionLoss, TransposedMultiplePositivesAndNegativesRankingLoss, agg_in_batch_negatives, MultiplePositivesAndNegativesRankingLoss
-from sentence_transformers_extensions.losses.MNRL import MNRL
 import logging
 from datetime import datetime
 import csv
@@ -71,7 +70,7 @@ with open(os.path.join(dataset_path, "classification/train_pairs.tsv"), encoding
 
 # After reading the train_samples, we create a DataLoader
 train_dataloader = DataLoader(train_samples, shuffle=True, batch_size=train_batch_size)
-train_loss = MultiplePositivesAndNegativesRankingLoss(model, positives=2)
+train_loss = TransposedMultiplePositivesAndNegativesRankingLoss(model, positives=2)
 
 
 ################### Development  Evaluators ##################

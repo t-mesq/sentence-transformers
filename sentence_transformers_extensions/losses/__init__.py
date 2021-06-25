@@ -5,3 +5,4 @@ from .MultiplePositivesAndNegativesRankingLoss import *
 # from .NLLAndMAPLoss import *
 # from .NLLAndNDCGLoss import *
 from .TransposedMultiplePositivesAndNegativesRankingLoss import *
+from .BiMultiplePositivesAndNegativesRankingLoss import *
