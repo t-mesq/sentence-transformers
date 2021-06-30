@@ -40,14 +40,14 @@ class MultiplePositivesAndNegativesRankingLoss(AggregatedModularLoss):
             train_loss = losses.MultipleNegativesRankingLoss(model=model)
     """
 
-    def __init__(self, model: SentenceTransformer, scale: float = 20.0, similarity_fct=util.cos_sim, positives=1, agg_fct=agg_in_batch_negatives):
+    def __init__(self, model: SentenceTransformer, scale: float = 20.0, similarity_fct=util.cos_sim, positives=1, agg_fct=agg_in_batch_negatives, cross_entropy_loss=nn.CrossEntropyLoss()):
         """
         :param model: SentenceTransformer model
         :param scale: Output of similarity function is multiplied by scale value
         :param similarity_fct: similarity function between sentence embeddings. By default, cos_sim. Can also be set to dot product (and then set sclae to 1)
         """
         super(MultiplePositivesAndNegativesRankingLoss, self).__init__(model=model, scale=scale, similarity_fct=similarity_fct, agg_fct=agg_fct, loss_fct=None, positives=positives)
-        self.cross_entropy_loss = nn.CrossEntropyLoss()
+        self.cross_entropy_loss = cross_entropy_loss
 
     def calc_loss(self, scores, labels):
         repeated_scores = scores.repeat(self.positives, 1)
