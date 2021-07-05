@@ -44,7 +44,7 @@ class ModularLoss(nn.Module):
 
         scores, labels = self.calc_agg(reps)
 
-        return self.calc_loss(scores, labels)
+        return self.calc_loss(scores * self.scale, labels)
 
     def split_scores_per_positive(self, scores: Tensor, labels: Tensor) -> Tensor:
         grouped_labels = labels.reshape(-1, len(scores)).transpose(0, 1)  # Examples a[i] should match with b[i + n*N]
@@ -61,7 +61,7 @@ class ModularLoss(nn.Module):
 def agg_in_batch_negatives(modular_loss: ModularLoss, reps: Union[Tuple[Tensor, ...], List[Tensor]]):
     embeddings_a = reps[0]
     embeddings_b = torch.cat(reps[1:])
-    scores = modular_loss.similarity_fct(embeddings_a, embeddings_b) * modular_loss.scale
+    scores = modular_loss.similarity_fct(embeddings_a, embeddings_b)
     labels = torch.tensor(range(len(embeddings_a) * modular_loss.positives), dtype=torch.long, device=scores.device).reshape(-1, len(scores)).transpose(0, 1)
 
     return scores, labels
@@ -70,8 +70,20 @@ def agg_in_batch_negatives(modular_loss: ModularLoss, reps: Union[Tuple[Tensor, 
 def agg_unique(modular_loss: ModularLoss, reps: Union[Tuple[Tensor, ...], List[Tensor]]):
     embeddings_a = reps[0]
     embeddings_b = torch.stack(reps[1:])
-    scores = torch.stack([modular_loss.similarity_fct(embeddings_a[i], embeddings_b[:, i])[0] for i in range(len(embeddings_a))])  * modular_loss.scale
+    scores = torch.stack([modular_loss.similarity_fct(embeddings_a[i], embeddings_b[:, i])[0] for i in range(len(embeddings_a))])
     labels = torch.tensor(range(modular_loss.positives), dtype=torch.long, device=scores.device).repeat(len(embeddings_a), 1)
+
+    return scores, labels
+
+
+def agg_positives(modular_loss: ModularLoss, reps: Union[Tuple[Tensor, ...], List[Tensor]]):
+    embeddings_a = reps[0]
+    embeddings_positives = torch.cat(reps[1:modular_loss.positives + 1])
+    embeddings_negatives = torch.stack(reps[modular_loss.positives + 1:])
+    in_batch_negatives_scores = modular_loss.similarity_fct(embeddings_a, embeddings_positives)
+    uniques_scores = torch.stack([modular_loss.similarity_fct(embeddings_a[i], embeddings_negatives[:, i])[0] for i in range(len(embeddings_a))])
+    scores = torch.cat((in_batch_negatives_scores, uniques_scores), dim=1)
+    labels = torch.tensor(range(len(embeddings_a) * modular_loss.positives), dtype=torch.long, device=scores.device).reshape(-1, len(scores)).transpose(0, 1)
 
     return scores, labels
 
@@ -80,6 +92,7 @@ class AggregatedModularLoss(ModularLoss):
     """
 
     """
+
     def __init__(self, model: SentenceTransformer,
                  loss_fct: Callable,
                  agg_fct: Union[Callable, str] = agg_in_batch_negatives,
