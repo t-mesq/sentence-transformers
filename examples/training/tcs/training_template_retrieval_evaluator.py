@@ -14,6 +14,7 @@ import pandas as pd
 from sentence_transformers_extensions import BiSentenceTransformer
 from sentence_transformers_extensions.callbacks import MetricsScoresPrinter
 from sentence_transformers_extensions.datasets import QueryFreqencyWeigther, ANCEWeighter, RoundRobinRankingDataset, InformationRetrievalTemperatureDataset
+from sentence_transformers_extensions.datasets.RoundRobinTemplateRankingDataset import RoundRobinTemplateRankingDataset
 from sentence_transformers_extensions.readers import IRInputExample
 from sentence_transformers_extensions.evaluation import TemplateRetrievalEvaluator, StackedRetrievalEvaluators
 
@@ -34,7 +35,7 @@ FINETUNNED_MODELS = {"paraphrase-xlm-r-multilingual-v1", 'paraphrase-distilrober
 MODELS_DIR = f'/content/drive/MyDrive/Data/IST/tese/models/{"bi-"*USE_BI_SBERT}sbert'
 SPLITS = 'train', 'val', 'test'
 
-hard_negatives_pooling = 'none'
+hard_negatives_pooling = 'ANCE'
 temperature = 1
 negatives = 4
 BATCH_SIZE = 32
@@ -63,7 +64,7 @@ def get_positive_pairs(train_df, model=None):
 
 
 def get_smart_pairs(train_df, model=None):
-    return RoundRobinRankingDataset(model=model, queries=queries.train, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_docs.train, batch_size=BATCH_SIZE, n_positives=positives, shuffle=shuffle_batches,
+    return RoundRobinTemplateRankingDataset(model=model, queries=queries.train, responses =None, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_docs.train, batch_size=BATCH_SIZE, n_positives=positives, shuffle=shuffle_batches,
                                     temperature=temperature, n_negatives=negatives, negatives_weighter=weighters[hard_negatives_pooling])
 
 
