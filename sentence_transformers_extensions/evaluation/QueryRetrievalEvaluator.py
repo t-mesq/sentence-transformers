@@ -5,12 +5,12 @@ import pandas as pd
 from torch import Tensor
 
 from sentence_transformers.util import cos_sim, dot_score
-from .TemplateRetrievalEvaluator import TemplateRetrievalEvaluator
+from .DocumentRetrievalEvaluator import DocumentRetrievalEvaluator
 
 logger = logging.getLogger(__name__)
 
 
-class QueryRetrievalEvaluator(TemplateRetrievalEvaluator):
+class QueryRetrievalEvaluator(DocumentRetrievalEvaluator):
     """
     This class evaluates an Information Retrieval (IR) setting, specifically, template retrieval.
 

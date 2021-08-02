@@ -1,4 +1,4 @@
-from. import TemplateRetrievalEvaluator, MetricsScore
+from. import DocumentRetrievalEvaluator, MetricsScore
 from sentence_transformers.evaluation import SentenceEvaluator
 
 

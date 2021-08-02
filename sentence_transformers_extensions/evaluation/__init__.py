@@ -1,3 +1,4 @@
+from .DocumentRetrievalEvaluator import *
 from .TemplateRetrievalEvaluator import *
-from .QueryRetrievalEvaluator import QueryRetrievalEvaluator
+from .QueryRetrievalEvaluator import *
 from .StackedRetrievalEvaluators import *

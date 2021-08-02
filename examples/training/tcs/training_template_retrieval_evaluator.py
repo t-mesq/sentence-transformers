@@ -16,7 +16,7 @@ from sentence_transformers_extensions.callbacks import MetricsScoresPrinter
 from sentence_transformers_extensions.datasets import QueryFreqencyWeigther, ANCEWeighter, RoundRobinRankingDataset, InformationRetrievalTemperatureDataset
 from sentence_transformers_extensions.datasets.RoundRobinTemplateRankingDataset import RoundRobinTemplateRankingDataset
 from sentence_transformers_extensions.readers import IRInputExample
-from sentence_transformers_extensions.evaluation import TemplateRetrievalEvaluator, StackedRetrievalEvaluators
+from sentence_transformers_extensions.evaluation import DocumentRetrievalEvaluator, StackedRetrievalEvaluators
 
 from sentence_transformers_extensions.losses import MultiplePositivesAndNegativesRankingLoss, agg_in_batch_negatives, agg_unique#, NormalizedDiscountedCumulativeGainLoss, NLLAndNDCGLoss, NLLAndMAPLoss, MeanAveragePrecisionLoss
 from sentence_transformers_extensions.losses import TransposedMultiplePositivesAndNegativesRankingLoss, BiMultiplePositivesAndNegativesRankingLoss
@@ -90,7 +90,7 @@ def get_train_examples(in_batch_neg, hard_neg_pool, shuffle):
 
 model = SentenceTransformer('distilroberta-base')
 
-ir_evaluators = {split: TemplateRetrievalEvaluator(queries[split].to_dict(), corpus.to_dict(), rel_docs[split].to_dict(), name=split, main_score_function='cos_sim', main_score_metric='mrr@10', show_progress_bar=True) for split in ('val',)}
+ir_evaluators = {split: DocumentRetrievalEvaluator(queries[split].to_dict(), corpus.to_dict(), rel_docs[split].to_dict(), name=split, main_score_function='cos_sim', main_score_metric='mrr@10', show_progress_bar=True) for split in ('val',)}
 # x = ir_evaluators['val'](model, output_path="", epoch= -1, steps = -1, corpus_model=None, corpus_embeddings= None)
 stacked_evaluator = StackedRetrievalEvaluators('val', **ir_evaluators)
 
