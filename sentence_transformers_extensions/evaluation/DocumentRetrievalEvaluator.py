@@ -174,7 +174,7 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
                 for query_itr in range(len(query_embeddings)):
                     for sub_corpus_id, score in zip(cos_scores_top_k_idx[query_itr], cos_scores_top_k_values[query_itr]):
                         corpus_id = self.corpus_ids[corpus_start_idx + sub_corpus_id]
-                        if queries_result_list[name][query_itr].get(corpus_id, score) >= score:
+                        if queries_result_list[name][query_itr].get(corpus_id, -9999999) <= score:
                             queries_result_list[name][query_itr][corpus_id] = score
 
         logger.info("Queries: {}".format(len(self.queries)))

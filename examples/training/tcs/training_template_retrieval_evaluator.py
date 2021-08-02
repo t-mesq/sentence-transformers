@@ -114,6 +114,7 @@ train_losses = {'nll': lambda *args, **kwargs: MultiplePositivesAndNegativesRank
                 }
 agg = agg_in_batch_negatives if in_batch_negatives else agg_unique
 train_loss = train_losses[loss_name](model=model, agg_fct=agg)
+stacked_evaluator(model, '', 1, 0)
 model.fit(train_objectives=[(train_dataloader, train_loss)],
           evaluator=stacked_evaluator,
           epochs=EPOCHS,
