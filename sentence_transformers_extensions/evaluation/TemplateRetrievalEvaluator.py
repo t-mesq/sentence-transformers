@@ -211,6 +211,11 @@ class TemplateRetrievalEvaluator(SentenceEvaluator):
             score = scores[self.main_score_function][self.main_score_metric['metric']][self.main_score_metric['k']]
         return MetricsScore(score, scores)
 
+
+    def get_ids_from_hits(self, hits):
+        return [hit['corpus_id'] for hit in hits]
+
+
     def compute_metrics(self, queries_result_list: List[object]):
         # Init score computation values
         recall_at_k = {k: [] for k in self.recall_at_k}
@@ -221,14 +226,14 @@ class TemplateRetrievalEvaluator(SentenceEvaluator):
             query_id = self.queries_ids[query_itr]
 
             # Sort scores
-            top_hits = sorted(queries_result_list[query_itr], key=lambda x: x['score'], reverse=True)
+            top_hits = self.get_ids_from_hits(sorted(queries_result_list[query_itr], key=lambda x: x['score'], reverse=True))
             query_relevant_docs = self.relevant_docs[query_id]
 
             # Recall@k
             for k_val in self.recall_at_k:
                 num_correct = 0
                 for hit in top_hits[0:k_val]:
-                    if hit['corpus_id'] in query_relevant_docs:
+                    if hit in query_relevant_docs:
                         num_correct += 1
 
                 recall_at_k[k_val].append(num_correct / len(query_relevant_docs))
@@ -237,7 +242,7 @@ class TemplateRetrievalEvaluator(SentenceEvaluator):
             for k_val in self.mrr_at_k:
                 MRR_val = 0
                 for rank, hit in enumerate(top_hits[0:k_val], start=1):
-                    if hit['corpus_id'] in query_relevant_docs:
+                    if hit in query_relevant_docs:
                         MRR_val = 1.0 / rank
                         break
                 MRR[k_val].append(MRR_val)  # Compute averages

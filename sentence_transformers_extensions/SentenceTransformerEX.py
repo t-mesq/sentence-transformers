@@ -23,7 +23,7 @@ from sentence_transformers import __DOWNLOAD_SERVER__
 from sentence_transformers.evaluation import SentenceEvaluator
 from sentence_transformers.util import import_from_string, batch_to_device, http_get
 from sentence_transformers.models import Transformer, Pooling
-from sentence_transformers. import __version__
+from sentence_transformers import __version__
 
 logger = logging.getLogger(__name__)
 
