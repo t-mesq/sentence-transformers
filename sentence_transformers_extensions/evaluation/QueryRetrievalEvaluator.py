@@ -23,7 +23,7 @@ class QueryRetrievalEvaluator(DocumentRetrievalEvaluator):
                  corpus: Dict[str, str],  # cid => doc
                  relevant_docs: Dict[str, Set[str]],  # qid => Set[cid]
                  query_to_doc: Dict[str, str],  # qid => cid
-                 corpus_chunk_size: int = 250,
+                 corpus_chunk_size: int = 1000,
                  mrr_at_k: List[int] = [10, 1000],
                  recall_at_k: List[int] = [1, 3, 5, 10, 20, 50, 100, 200, 500],
                  show_progress_bar: bool = False,
@@ -51,6 +51,7 @@ class QueryRetrievalEvaluator(DocumentRetrievalEvaluator):
                          compute_macro_metrics=compute_macro_metrics
                          )
         self.query_to_doc = query_to_doc
+        self.corpus_ids = list(map(self.query_to_doc.get, self.corpus))
 
-    def get_ids_from_hits(self, hits):
-        return pd.unique([self.query_to_doc[hit['corpus_id']] for hit in hits])
+    # def get_ids_from_hits(self, hits):
+    #     return pd.unique([self.query_to_doc[hit['corpus_id']] for hit in hits])

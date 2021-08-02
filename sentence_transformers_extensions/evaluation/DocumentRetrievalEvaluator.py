@@ -64,7 +64,7 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
                  queries: Dict[str, str],  # qid => query
                  corpus: Dict[str, str],  # cid => doc
                  relevant_docs: Dict[str, Set[str]],  # qid => Set[cid]
-                 corpus_chunk_size: int = 250,
+                 corpus_chunk_size: int = 1000,
                  mrr_at_k: List[int] = [10, 1000],
                  recall_at_k: List[int] = [1, 3, 5, 10, 20, 50, 100, 200, 500],
                  show_progress_bar: bool = False,
@@ -145,7 +145,7 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
 
         queries_result_list = {}
         for name in self.score_functions:
-            queries_result_list[name] = [[] for _ in range(len(query_embeddings))]
+            queries_result_list[name] = [{} for _ in range(len(query_embeddings))]
 
         itr = range(0, len(self.corpus), self.corpus_chunk_size)
 
@@ -174,7 +174,8 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
                 for query_itr in range(len(query_embeddings)):
                     for sub_corpus_id, score in zip(cos_scores_top_k_idx[query_itr], cos_scores_top_k_values[query_itr]):
                         corpus_id = self.corpus_ids[corpus_start_idx + sub_corpus_id]
-                        queries_result_list[name][query_itr].append({'corpus_id': corpus_id, 'score': score})
+                        if queries_result_list[name][query_itr].get(corpus_id, score) >= score:
+                            queries_result_list[name][query_itr][corpus_id] = score
 
         logger.info("Queries: {}".format(len(self.queries)))
         logger.info("Corpus: {}\n".format(len(self.corpus)))
@@ -212,11 +213,7 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
         return MetricsScore(score, scores)
 
 
-    def get_ids_from_hits(self, hits):
-        return [hit['corpus_id'] for hit in hits]
-
-
-    def compute_metrics(self, queries_result_list: List[object]):
+    def compute_metrics(self, queries_result_list: List[Dict]):
         # Init score computation values
         recall_at_k = {k: [] for k in self.recall_at_k}
         MRR = {k: [] for k in self.mrr_at_k}
@@ -226,7 +223,7 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
             query_id = self.queries_ids[query_itr]
 
             # Sort scores
-            top_hits = self.get_ids_from_hits(sorted(queries_result_list[query_itr], key=lambda x: x['score'], reverse=True))
+            top_hits = sorted(queries_result_list[query_itr], key=queries_result_list[query_itr].get, reverse=True)
             query_relevant_docs = self.relevant_docs[query_id]
 
             # Recall@k
