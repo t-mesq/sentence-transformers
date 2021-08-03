@@ -5,4 +5,5 @@ from .InformationRetrievalDataset import *
 from .RoundRobinRankingDataset import *
 from .InvertedRoundRobinRankingDataset import *
 from .RoundRobinTemplateRankingDataset import *
+from .RoundRobinQueryRankingDataset import *
 from .weigthers import *
