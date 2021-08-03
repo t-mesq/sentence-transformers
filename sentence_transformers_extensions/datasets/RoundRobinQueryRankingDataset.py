@@ -25,4 +25,4 @@ class RoundRobinQueryRankingDataset(RoundRobinRankingDataset):
                 d_mask = ~self.neg_rel_corpus.index.isin(self.rel_queries[d_id])
                 n_ids = self.neg_rel_corpus[d_mask].sample(self.n_negatives, weights=self.negatives_weighter(d_id)[d_mask]).keys()
                 q_ids = np.random.choice(self.rel_queries[d_id], self.n_positives)
-                yield IRInputExample(texts=([self.queries[p_id] for p_id in q_id + q_ids] + [self.queries[q_id] for q_id in n_ids]), label=batch_num, query_first=True)
+                yield IRInputExample(texts=([self.queries[p_id] for p_id in [q_id, *q_ids]] + [self.queries[q_id] for q_id in n_ids]), label=batch_num, query_first=True)
