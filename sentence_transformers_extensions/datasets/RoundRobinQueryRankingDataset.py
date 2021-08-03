@@ -19,7 +19,7 @@ class RoundRobinQueryRankingDataset(RoundRobinRankingDataset):
         super().__init__(model, queries, None, rel_queries, rel_corpus, negatives_weighter, batch_size, n_positives, temperature, shuffle, n_negatives, neg_rel_corpus)
 
     def __iter__(self):
-        self.negatives_weighter.setup(self.model, queries=self.corpus.to_dict(), corpus=self.queries.to_dict(), rel_queries=self.neg_rel_corpus.to_dict())
+        self.negatives_weighter.setup(self.model, queries=self.queries.to_dict(), corpus=self.queries.to_dict(), rel_queries=self.neg_rel_corpus.to_dict())
         for batch_num in range(math.ceil(self.__len__() / self.batch_size)):
             for d_id, q_id in self.rel_queries.sample(self.batch_size, weights=self.weights).map(pop_and_append).items():
                 d_mask = ~self.neg_rel_corpus.index.isin(self.rel_queries[d_id])
