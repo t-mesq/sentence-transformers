@@ -51,7 +51,7 @@ class QueryRetrievalEvaluator(DocumentRetrievalEvaluator):
                          compute_macro_metrics=compute_macro_metrics
                          )
         self.query_to_doc = query_to_doc
-        self.corpus_ids = list(map(self.query_to_doc.get, self.corpus))
+        self.corpus_ids = list(map(self.query_to_doc.get, self.corpus_ids))
 
     # def get_ids_from_hits(self, hits):
     #     return pd.unique([self.query_to_doc[hit['corpus_id']] for hit in hits])

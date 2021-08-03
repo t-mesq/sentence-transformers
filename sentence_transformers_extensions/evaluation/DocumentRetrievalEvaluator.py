@@ -71,7 +71,9 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
                  batch_size: int = 32,
                  name: str = '',
                  write_csv: bool = True,
-                 score_functions: Dict[str, Callable[[Tensor, Tensor], Tensor]] = {'cos_sim': cos_sim, 'dot_score': dot_score},  # Score function, higher=more similar
+                 score_functions: Dict[str, Callable[[Tensor, Tensor], Tensor]] = {'cos_sim': cos_sim,
+                                                                                   'dot_score': dot_score},
+                 # Score function, higher=more similar
                  main_score_function: str = None,
                  main_score_metric: str = 'recall@3',
                  compute_macro_metrics: bool = True,
@@ -101,7 +103,8 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
         self.score_function_names = sorted(list(self.score_functions.keys()))
         self.main_score_function = main_score_function
 
-        self.main_score_metric = [{'metric': f'{metric}@k', 'k': int(k)} for metric, k in [main_score_metric.split('@')]][0]
+        self.main_score_metric = \
+        [{'metric': f'{metric}@k', 'k': int(k)} for metric, k in [main_score_metric.split('@')]][0]
 
         if name:
             name = "_" + name
@@ -122,9 +125,11 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
                 for k in mrr_at_k:
                     self.csv_headers.append("{}-M_MRR@{}".format(score_name, k))
 
-    def __call__(self, model, output_path: str = None, epoch: int = -1, steps: int = -1, corpus_model=None, corpus_embeddings: Tensor = None) -> MetricsScore:
+    def __call__(self, model, output_path: str = None, epoch: int = -1, steps: int = -1, corpus_model=None,
+                 corpus_embeddings: Tensor = None) -> MetricsScore:
         if epoch != -1:
-            out_txt = " after epoch {}:".format(epoch) if steps == -1 else " in epoch {} after {} steps:".format(epoch, steps)
+            out_txt = " after epoch {}:".format(epoch) if steps == -1 else " in epoch {} after {} steps:".format(epoch,
+                                                                                                                 steps)
         else:
             out_txt = ":"
 
@@ -141,7 +146,8 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
         max_k = max(max(self.mrr_at_k), max(self.recall_at_k))
 
         # Compute embedding for the queries
-        query_embeddings = model.encode(self.queries, show_progress_bar=self.show_progress_bar, batch_size=self.batch_size, convert_to_tensor=True, **query_args)
+        query_embeddings = model.encode(self.queries, show_progress_bar=self.show_progress_bar,
+                                        batch_size=self.batch_size, convert_to_tensor=True, **query_args)
 
         queries_result_list = {}
         for name in self.score_functions:
@@ -158,7 +164,9 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
 
             # Encode chunk of corpus
             if corpus_embeddings is None:
-                sub_corpus_embeddings = corpus_model.encode(self.corpus[corpus_start_idx:corpus_end_idx], show_progress_bar=False, batch_size=self.batch_size, convert_to_tensor=True, **document_args)
+                sub_corpus_embeddings = corpus_model.encode(self.corpus[corpus_start_idx:corpus_end_idx],
+                                                            show_progress_bar=False, batch_size=self.batch_size,
+                                                            convert_to_tensor=True, **document_args)
             else:
                 sub_corpus_embeddings = corpus_embeddings[corpus_start_idx:corpus_end_idx]
 
@@ -167,12 +175,14 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
                 cos_scores = score_function(query_embeddings, sub_corpus_embeddings)
 
                 # Get top-k values
-                cos_scores_top_k_values, cos_scores_top_k_idx = torch.topk(cos_scores, min(max_k, len(cos_scores[0])), dim=1, largest=True, sorted=False)
+                cos_scores_top_k_values, cos_scores_top_k_idx = torch.topk(cos_scores, min(max_k, len(cos_scores[0])),
+                                                                           dim=1, largest=True, sorted=False)
                 cos_scores_top_k_values = cos_scores_top_k_values.cpu().tolist()
                 cos_scores_top_k_idx = cos_scores_top_k_idx.cpu().tolist()
 
                 for query_itr in range(len(query_embeddings)):
-                    for sub_corpus_id, score in zip(cos_scores_top_k_idx[query_itr], cos_scores_top_k_values[query_itr]):
+                    for sub_corpus_id, score in zip(cos_scores_top_k_idx[query_itr],
+                                                    cos_scores_top_k_values[query_itr]):
                         corpus_id = self.corpus_ids[corpus_start_idx + sub_corpus_id]
                         if queries_result_list[name][query_itr].get(corpus_id, -9999999) <= score:
                             queries_result_list[name][query_itr][corpus_id] = score
@@ -207,11 +217,11 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
             csv_df.to_csv(csv_path, index=False)
 
         if self.main_score_function is None:
-            score = max([scores[name][self.main_score_metric['metric']][self.main_score_metric['k']] for name in self.score_function_names])
+            score = max([scores[name][self.main_score_metric['metric']][self.main_score_metric['k']] for name in
+                         self.score_function_names])
         else:
             score = scores[self.main_score_function][self.main_score_metric['metric']][self.main_score_metric['k']]
         return MetricsScore(score, scores)
-
 
     def compute_metrics(self, queries_result_list: List[Dict]):
         # Init score computation values
@@ -249,7 +259,8 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
         metric_scores = {'recall@k': recall_at_k.mean().to_dict(), 'mrr@k': MRR.mean().to_dict()}
         if self.compute_macro_metrics:
             d_ids = pd.Series(self.relevant_docs).map(lambda x: list(x)[0]).loc[self.queries_ids].values
-            macro_average = lambda metric_at_k: metric_at_k.assign(d_id=d_ids).dropna().groupby('d_id').agg(np.mean).mean().to_dict()   # computes mean per document and afterwards, the average of the means.
+            macro_average = lambda metric_at_k: metric_at_k.assign(d_id=d_ids).dropna().groupby('d_id').agg(
+                np.mean).mean().to_dict()  # computes mean per document and afterwards, the average of the means.
             metric_scores.update({'M_recall@k': macro_average(recall_at_k), 'M_mrr@k': macro_average(MRR)})
         return metric_scores
 
