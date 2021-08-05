@@ -23,4 +23,4 @@ class RoundRobinQuerySimilarityDataset(RoundRobinRankingDataset):
             for sample_size, (d_id, q_id) in zip(self.sample_sizes, self.rel_queries.sample(len(self.sample_sizes), weights=self.weights, replace=self.replace).map(pop_and_append).items()):
                 q_ids = [q_id, *np.random.choice(self.rel_queries[d_id], self.n_positives - 1)]
                 for p_id in q_ids:
-                    yield IRInputExample(texts=(self.queries[p_id]), label=d_id, query_first=True)
+                    yield IRInputExample(texts=([self.queries[p_id]]), label=d_id, query_first=True)
