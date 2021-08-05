@@ -25,8 +25,7 @@ class RoundRobinQuerySimilarityDataset(RoundRobinRankingDataset):
                     q_id,
                     *np.random.choice(self.rel_queries[d_id],
                                        self.n_positives - 1,
-                                       p=normalize((np.array(self.rel_queries[d_id])!=q_id).astype('float64')[np.newaxis, :], 'l1')[0])
+                                       p=normalize((np.array(self.rel_queries[d_id])!=q_id).astype('float128')[np.newaxis, :], 'l1')[0])
                     ]
-                print(normalize((np.array(self.rel_queries[d_id])!=q_id).astype('float64')[np.newaxis, :], 'l1')[0].sum())
                 for p_id in q_ids:
                     yield IRInputExample(texts=(self.queries[p_id]), label=d_id, query_first=True)
