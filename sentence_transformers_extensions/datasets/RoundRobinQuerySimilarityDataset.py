@@ -17,6 +17,7 @@ class RoundRobinQuerySimilarityDataset(RoundRobinRankingDataset):
         self.replace = replace
         self.sample_sizes = [self.n_positives] * (self.batch_size // self.n_positives)
         self.sample_sizes[-1] += self.batch_size % self.n_positives
+        self.rel_queries = self.rel_queries[self.rel_queries.str.len() >= self.n_positives]
 
     def __iter__(self):
         for _ in range(math.ceil(self.__len__() / self.batch_size)):
