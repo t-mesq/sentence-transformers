@@ -6,13 +6,14 @@ import numpy as np
 from math import ceil
 from collections import defaultdict
 from ..readers import IRInputExample
-
+from sklearn.preprocessing import normalize
 
 from sentence_transformers import InputExample
 
 
 class QuantileQuerySimilarityDataset(IterableDataset):
-    def __init__(self, model, queries, rel_queries, rel_corpus, batch_size=32, quantile=4):
+    def __init__(self, model, queries, rel_queries, rel_corpus, batch_size=32, quantile=4, temperature=1, n_positives=1):
+        self.n_positives = n_positives
         self.quantile = quantile
         self.rel_corpus = pd.Series(rel_corpus)
         self.model = model
@@ -23,12 +24,17 @@ class QuantileQuerySimilarityDataset(IterableDataset):
         ibin = bin(self.batch_size)
         self.batch_formation = [int(ibin[:i], base=2) + int(ibin[i]) for i in range(-self.quantile, 0)]
         self.batch_formation = [self.batch_size - sum(self.batch_formation), *self.batch_formation]
+        self.temperature_power = 1 / temperature
+        self.weights = self.rel_queries.map(len).agg(lambda x: normalize(np.array([x]) ** self.temperature_power, norm='l1')[0])
 
     def __iter__(self):
         current_batch_formation = defaultdict(int)
-        for i, s in enumerate(self.batch_formation[1:]):
-            macro_id = np.random.choice(self.quantile_splits[i], 1)[0]
-            current_batch_formation[macro_id] += s
+        for i, total_s in enumerate(self.batch_formation[1:]):
+            queries_mask = self.rel_queries.index.isin(self.quantile_splits[i])
+            macro_ids = self.rel_queries[queries_mask].sample(self.n_positives, weights=self.weights[queries_mask], replace=True).index
+            for macro_id, s in zip(macro_ids, self.get_even_split(total_s)):
+                current_batch_formation[macro_id] += s
+
         current_batch = list(self.rel_corpus[self.rel_corpus.map(lambda x: x[0]).isin(self.quantile_splits[0])].sample(self.batch_formation[0]).keys())
         for macro_id, s in current_batch_formation.items():
             current_batch.extend(np.random.choice(self.rel_queries[macro_id], s))
@@ -45,3 +51,6 @@ class QuantileQuerySimilarityDataset(IterableDataset):
         quantiles.loc[0.00] = 0
         quantile_splits = zip(quantiles.counts, quantiles.counts.iloc[1:])
         return [frequency_df[(s1 <= frequency_df.counts) & (frequency_df.counts <= s2)].macro.unique() for s1, s2 in quantile_splits]
+
+    def get_even_split(self, n):
+        return [n // self.n_positives + bool(i < n % self.n_positives) for i in range(self.n_positives)]

@@ -83,7 +83,7 @@ def get_ir_queries_pairs(train_df, model=None):
 
 
 def get_queries_quantiles(train_df, model=None):
-    return QuantileQuerySimilarityDataset(model=model, queries=corpus, corpus=queries.train, rel_queries=rel_queries, rel_corpus=rel_docs.train,
+    return QuantileQuerySimilarityDataset(model=model, queries=corpus, rel_queries=rel_queries, rel_corpus=rel_docs.train,
                                           batch_size=BATCH_SIZE)
 
 
