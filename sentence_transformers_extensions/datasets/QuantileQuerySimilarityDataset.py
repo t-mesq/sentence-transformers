@@ -12,7 +12,7 @@ from sentence_transformers import InputExample
 
 
 class QuantileQuerySimilarityDataset(IterableDataset):
-    def __init__(self, model, queries, corpus, rel_queries, rel_corpus, batch_size=32, quantile=4):
+    def __init__(self, model, queries, rel_queries, rel_corpus, batch_size=32, quantile=4):
         self.quantile = quantile
         self.rel_corpus = pd.Series(rel_corpus)
         self.model = model
