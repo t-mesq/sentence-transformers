@@ -17,7 +17,6 @@ class QuantileQuerySimilarityDataset(IterableDataset):
         self.rel_corpus = pd.Series(rel_corpus)
         self.model = model
         self.queries = pd.Series(queries)
-        self.corpus = pd.Series(corpus)
         self.rel_queries = pickle.loads(pickle.dumps(rel_queries))  # dirty copy
         self.batch_size = batch_size
         self.quantile_splits = self.get_quantile_splits()
