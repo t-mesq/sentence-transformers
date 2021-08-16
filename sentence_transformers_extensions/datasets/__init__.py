@@ -7,4 +7,5 @@ from .InvertedRoundRobinRankingDataset import *
 from .RoundRobinTemplateRankingDataset import *
 from .RoundRobinQueryRankingDataset import *
 from .RoundRobinQuerySimilarityDataset import *
+from .QuantileQuerySimilarityDataset import *
 from .weigthers import *

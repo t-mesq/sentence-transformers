@@ -13,13 +13,15 @@ import pandas as pd
 # import seaborn as sns
 from sentence_transformers_extensions import BiSentenceTransformer
 from sentence_transformers_extensions.callbacks import MetricsScoresPrinter
-from sentence_transformers_extensions.datasets import QueryFreqencyWeigther, ANCEWeighter, RoundRobinRankingDataset, InformationRetrievalTemperatureDataset
+from sentence_transformers_extensions.datasets import QueryFreqencyWeigther, ANCEWeighter, RoundRobinRankingDataset, InformationRetrievalTemperatureDataset, QuantileQuerySimilarityDataset
 from sentence_transformers_extensions.datasets.RoundRobinTemplateRankingDataset import RoundRobinTemplateRankingDataset
 from sentence_transformers_extensions.readers import IRInputExample
 from sentence_transformers_extensions.evaluation import DocumentRetrievalEvaluator, StackedRetrievalEvaluators
 
-from sentence_transformers_extensions.losses import MultiplePositivesAndNegativesRankingLoss, agg_in_batch_negatives, agg_unique#, NormalizedDiscountedCumulativeGainLoss, NLLAndNDCGLoss, NLLAndMAPLoss, MeanAveragePrecisionLoss
+from sentence_transformers_extensions.losses import MultiplePositivesAndNegativesRankingLoss, agg_in_batch_negatives, \
+    agg_unique  # , NormalizedDiscountedCumulativeGainLoss, NLLAndNDCGLoss, NLLAndMAPLoss, MeanAveragePrecisionLoss
 from sentence_transformers_extensions.losses import TransposedMultiplePositivesAndNegativesRankingLoss, BiMultiplePositivesAndNegativesRankingLoss
+
 tqdm.pandas
 
 DATASET_FOLDER = "SB-templates/"
@@ -32,24 +34,24 @@ FILE_NAME = 'doc.json'
 USE_GPU = True
 USE_BI_SBERT = False
 FINETUNNED_MODELS = {"paraphrase-xlm-r-multilingual-v1", 'paraphrase-distilroberta-base-v1', 'distiluse-base-multilingual-cased-v1'}
-MODELS_DIR = f'/content/drive/MyDrive/Data/IST/tese/models/{"bi-"*USE_BI_SBERT}sbert'
+MODELS_DIR = f'/content/drive/MyDrive/Data/IST/tese/models/{"bi-" * USE_BI_SBERT}sbert'
 SPLITS = 'train', 'val', 'test'
 
 hard_negatives_pooling = 'ANCE'
 temperature = 1
 negatives = 4
-BATCH_SIZE = 32
+BATCH_SIZE = 35
 positives = 1
-shuffle_batches = 'smart'
+shuffle_batches = 'quantile'
 in_batch_negatives = True
 loss_name = 'nll'
 EPOCHS = 50
 
 queries_splits_df = pd.Series({split: pd.read_json(f"{DATASET_PATH}{split}/{FILE_NAME}") for split in SPLITS})
 templates_df = pd.read_json(f"{TEMPLATES_FOLDER}{FILE_NAME}")
-queries = queries_splits_df.map(lambda df: df.set_index('id').query_text) #dicts in the format: query_id -> query. Stores all training queries
-corpus = templates_df.set_index('id').query_text #dict in the format: passage_id -> passage. Stores all existent passages
-rel_docs = queries_splits_df.map(lambda df: df.set_index('id').macro_id.map(lambda x: [x])) #dicts in the format: query_id -> set(macro_ids). Stores all training queries
+queries = queries_splits_df.map(lambda df: df.set_index('id').query_text)  # dicts in the format: query_id -> query. Stores all training queries
+corpus = templates_df.set_index('id').query_text  # dict in the format: passage_id -> passage. Stores all existent passages
+rel_docs = queries_splits_df.map(lambda df: df.set_index('id').macro_id.map(lambda x: [x]))  # dicts in the format: query_id -> set(macro_ids). Stores all training queries
 rel_queries = queries_splits_df.train.groupby('macro_id').id.agg(list)
 scale = 16
 
@@ -64,8 +66,9 @@ def get_positive_pairs(train_df, model=None):
 
 
 def get_smart_pairs(train_df, model=None):
-    return RoundRobinTemplateRankingDataset(model=model, queries=queries.train, responses =None, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_docs.train, batch_size=BATCH_SIZE, n_positives=positives, shuffle=shuffle_batches,
-                                    temperature=temperature, n_negatives=negatives, negatives_weighter=weighters[hard_negatives_pooling])
+    return RoundRobinTemplateRankingDataset(model=model, queries=queries.train, responses=None, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_docs.train, batch_size=BATCH_SIZE,
+                                            n_positives=positives, shuffle=shuffle_batches,
+                                            temperature=temperature, n_negatives=negatives, negatives_weighter=weighters[hard_negatives_pooling])
 
 
 def get_ir_smart_pairs(train_df, model=None):
@@ -79,6 +82,11 @@ def get_ir_queries_pairs(train_df, model=None):
                                                   query_first=True)
 
 
+def get_queries_quantiles(train_df, model=None):
+    return QuantileQuerySimilarityDataset(model=model, queries=corpus, corpus=queries.train, rel_queries=rel_queries, rel_corpus=rel_docs.train,
+                                          batch_size=BATCH_SIZE)
+
+
 def get_train_examples(in_batch_neg, hard_neg_pool, shuffle):
     if shuffle == 'smart':
         return get_smart_pairs
@@ -86,15 +94,20 @@ def get_train_examples(in_batch_neg, hard_neg_pool, shuffle):
         return get_ir_smart_pairs
     if shuffle == 'ir-queries':
         return get_ir_queries_pairs
+    if shuffle == 'quantile':
+        return get_queries_quantiles
     return get_positive_pairs
 
-model = SentenceTransformer('distilroberta-base')
 
-ir_evaluators = {split: DocumentRetrievalEvaluator(queries[split].to_dict(), corpus.to_dict(), rel_docs[split].to_dict(), name=split, main_score_function='cos_sim', main_score_metric='mrr@10', show_progress_bar=True) for split in ('val',)}
+model = SentenceTransformer('distiluse-base-multilingual-cased-v1')
+
+ir_evaluators = {split: DocumentRetrievalEvaluator(queries[split].to_dict(), corpus.to_dict(), rel_docs[split].to_dict(), name=split, main_score_function='cos_sim', main_score_metric='mrr@10',
+                                                   show_progress_bar=True) for split in ('val',)}
 # x = ir_evaluators['val'](model, output_path="", epoch= -1, steps = -1, corpus_model=None, corpus_embeddings= None)
 stacked_evaluator = StackedRetrievalEvaluators('val', **ir_evaluators)
 
 from torch import nn
+
 # Create the evaluator that is called during training
 
 # Get trainning examples
@@ -114,7 +127,7 @@ train_losses = {'nll': lambda *args, **kwargs: MultiplePositivesAndNegativesRank
                 }
 agg = agg_in_batch_negatives if in_batch_negatives else agg_unique
 train_loss = train_losses[loss_name](model=model, agg_fct=agg)
-stacked_evaluator(model, '', 1, 0)
+# stacked_evaluator(model, '', 1, 0)
 model.fit(train_objectives=[(train_dataloader, train_loss)],
           evaluator=stacked_evaluator,
           epochs=EPOCHS,
