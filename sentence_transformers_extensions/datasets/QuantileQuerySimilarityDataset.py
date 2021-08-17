@@ -47,7 +47,7 @@ class QuantileQuerySimilarityDataset(IterableDataset):
     def get_quantile_splits(self):
         frequency_df = self.rel_queries.map(len).rename('counts').sort_values()
         frequency_df = self.rel_corpus.map(lambda y: y[0]).rename('macro').to_frame().join(frequency_df, on='macro').sort_values('counts')
-        quantiles = frequency_df.quantile(np.arange(0, 1.00001, 0.25))
+        quantiles = frequency_df.quantile(np.arange(0, 1.00001, 1/self.quantile))
         quantiles.loc[0.00] = 0
         quantile_splits = zip(quantiles.counts, quantiles.counts.iloc[1:])
         return [frequency_df[(s1 <= frequency_df.counts) & (frequency_df.counts <= s2)].macro.unique() for s1, s2 in quantile_splits]
