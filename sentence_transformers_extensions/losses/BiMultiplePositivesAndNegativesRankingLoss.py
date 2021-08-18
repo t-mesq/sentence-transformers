@@ -51,8 +51,8 @@ class BiMultiplePositivesAndNegativesRankingLoss(MultiplePositivesAndNegativesRa
         self.cross_entropy_loss = nn.CrossEntropyLoss()
 
     def calc_loss(self, scores, labels):
-        repeated_scores = scores.repeat(self.positives, 1)
-        repeated_labels = labels.repeat(self.positives, 1)
+        repeated_scores = scores.repeat(labels.shape[1], 1)
+        repeated_labels = labels.repeat(labels.shape[1], 1)
 
         adjusted_labels = labels.transpose(0, 1).flatten()
         labels_mask = repeated_labels[repeated_labels != adjusted_labels.unsqueeze(-1)].reshape(repeated_labels[:, 1:].shape)

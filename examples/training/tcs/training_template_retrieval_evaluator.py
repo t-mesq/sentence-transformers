@@ -19,7 +19,7 @@ from sentence_transformers_extensions.readers import IRInputExample
 from sentence_transformers_extensions.evaluation import DocumentRetrievalEvaluator, StackedRetrievalEvaluators
 
 from sentence_transformers_extensions.losses import MultiplePositivesAndNegativesRankingLoss, agg_in_batch_negatives, \
-    agg_unique  # , NormalizedDiscountedCumulativeGainLoss, NLLAndNDCGLoss, NLLAndMAPLoss, MeanAveragePrecisionLoss
+    agg_unique, agg_all  # , NormalizedDiscountedCumulativeGainLoss, NLLAndNDCGLoss, NLLAndMAPLoss, MeanAveragePrecisionLoss
 from sentence_transformers_extensions.losses import TransposedMultiplePositivesAndNegativesRankingLoss, BiMultiplePositivesAndNegativesRankingLoss
 
 tqdm.pandas
@@ -37,12 +37,12 @@ FINETUNNED_MODELS = {"paraphrase-xlm-r-multilingual-v1", 'paraphrase-distilrober
 MODELS_DIR = f'/content/drive/MyDrive/Data/IST/tese/models/{"bi-" * USE_BI_SBERT}sbert'
 SPLITS = 'train', 'val', 'test'
 
-hard_negatives_pooling = 'ANCE'
+hard_negatives_pooling = 'none'
 temperature = 1
-negatives = 4
+negatives = 0
 BATCH_SIZE = 35
 positives = 1
-shuffle_batches = 'quantile'
+shuffle_batches = 'smart'
 in_batch_negatives = True
 loss_name = 'nll'
 EPOCHS = 50
@@ -68,7 +68,7 @@ def get_positive_pairs(train_df, model=None):
 def get_smart_pairs(train_df, model=None):
     return RoundRobinTemplateRankingDataset(model=model, queries=queries.train, responses=None, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_docs.train, batch_size=BATCH_SIZE,
                                             n_positives=positives, shuffle=shuffle_batches,
-                                            temperature=temperature, n_negatives=negatives, negatives_weighter=weighters[hard_negatives_pooling])
+                                            temperature=temperature, n_negatives=negatives, negatives_weighter=weighters[hard_negatives_pooling], template_weight=1)
 
 
 def get_ir_smart_pairs(train_df, model=None):
@@ -83,7 +83,7 @@ def get_ir_queries_pairs(train_df, model=None):
 
 
 def get_queries_quantiles(train_df, model=None):
-    return QuantileQuerySimilarityDataset(model=model, queries=corpus, rel_queries=rel_queries, rel_corpus=rel_docs.train,
+    return QuantileQuerySimilarityDataset(model=model, queries=queries.train, rel_queries=rel_queries, rel_corpus=rel_docs.train,
                                           batch_size=BATCH_SIZE)
 
 
@@ -125,7 +125,7 @@ train_losses = {'nll': lambda *args, **kwargs: MultiplePositivesAndNegativesRank
                 # 'nll+ndcg': lambda *args, **kwargs: NLLAndNDCGLoss(*args, **kwargs, positives=positives, regularization_strength=REGULARIZATION_STRENGTH),
                 # 'nll+map': lambda *args, **kwargs: NLLAndMAPLoss(*args, **kwargs, positives=positives, regularization_strength=REGULARIZATION_STRENGTH)
                 }
-agg = agg_in_batch_negatives if in_batch_negatives else agg_unique
+agg = agg_all if in_batch_negatives else agg_unique
 train_loss = train_losses[loss_name](model=model, agg_fct=agg)
 # stacked_evaluator(model, '', 1, 0)
 model.fit(train_objectives=[(train_dataloader, train_loss)],
