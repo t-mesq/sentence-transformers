@@ -21,9 +21,9 @@ from sentence_transformers_extensions.evaluation import DocumentRetrievalEvaluat
 
 from sentence_transformers_extensions.losses import MultiplePositivesAndNegativesRankingLoss, agg_in_batch_negatives, \
     agg_unique, agg_all  # , NormalizedDiscountedCumulativeGainLoss, NLLAndNDCGLoss, NLLAndMAPLoss, MeanAveragePrecisionLoss
-from sentence_transformers_extensions.losses import TransposedMultiplePositivesAndNegativesRankingLoss, BiMultiplePositivesAndNegativesRankingLoss
+from sentence_transformers_extensions.losses import TransposedMultiplePositivesAndNegativesRankingLoss, BiMultiplePositivesAndNegativesRankingLoss, BatchAllCrossEntropyLoss
 
-tqdm.pandas
+tqdm.pandas()
 
 DATASET_FOLDER = "SB-templates/"
 COLLECTIONS_PATH = "./"
@@ -41,11 +41,11 @@ SPLITS = 'train', 'val', 'test'
 hard_negatives_pooling = 'none'
 temperature = 1
 negatives = 0
-BATCH_SIZE = 32
+BATCH_SIZE = 192
 positives = 1
-shuffle_batches = 'queries-pos'
+shuffle_batches = 'queries'
 in_batch_negatives = True
-loss_name = 'nll'
+loss_name = 'bace'
 EPOCHS = 50
 
 queries_splits_df = pd.Series({split: pd.read_json(f"{DATASET_PATH}{split}/{FILE_NAME}") for split in SPLITS})
@@ -60,6 +60,10 @@ weighters = {
     'none': QueryFreqencyWeigther(temperature=16),
     'ANCE': ANCEWeighter()
 }
+
+
+def get_labeled_queries(train_df, model=None):
+    return queries_splits_df.train.sort_values('macro_class').apply(lambda row: InputExample(texts=[row.query_text], label=row.macro_class), axis=1).to_dict()
 
 
 def get_positive_pairs(train_df, model=None):
@@ -91,6 +95,8 @@ def get_queries_quantiles(train_df, model=None):
 
 
 def get_train_examples(in_batch_neg, hard_neg_pool, shuffle):
+    if shuffle == 'queries':
+        return get_labeled_queries
     if shuffle == 'smart':
         return get_smart_pairs
     if shuffle == 'ir-smart':
@@ -125,6 +131,7 @@ train_losses = {'nll': lambda *args, **kwargs: MultiplePositivesAndNegativesRank
                 # 'pair-nll': lambda *args, **kwargs: MultiplePositivesAndNegativesRankingLoss(*args, **kwargs, positives=positives, scale=scale, cross_entropy_loss=PairwiseNLLLoss()),
                 't-nll': lambda *args, **kwargs: TransposedMultiplePositivesAndNegativesRankingLoss(*args, **kwargs, positives=positives, scale=scale),
                 'bi-nll': lambda *args, **kwargs: BiMultiplePositivesAndNegativesRankingLoss(*args, **kwargs, positives=positives, scale=scale),
+                'bace': lambda *args, model, **kwargs: BatchAllCrossEntropyLoss(*args, model=model, scale=scale),
                 # 'map': lambda *args, **kwargs: MeanAveragePrecisionLoss(*args, **kwargs, regularization_strength=REGULARIZATION_STRENGTH),
                 # 'ndcg': lambda *args, **kwargs: NormalizedDiscountedCumulativeGainLoss(*args, **kwargs, regularization_strength=REGULARIZATION_STRENGTH),
                 # 'nll+ndcg': lambda *args, **kwargs: NLLAndNDCGLoss(*args, **kwargs, positives=positives, regularization_strength=REGULARIZATION_STRENGTH),

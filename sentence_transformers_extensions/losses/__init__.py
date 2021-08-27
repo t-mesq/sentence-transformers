@@ -6,3 +6,4 @@ from .MultiplePositivesAndNegativesRankingLoss import *
 # from .NLLAndNDCGLoss import *
 from .TransposedMultiplePositivesAndNegativesRankingLoss import *
 from .BiMultiplePositivesAndNegativesRankingLoss import *
+from .BatchAllCrossEntropyLoss import *
