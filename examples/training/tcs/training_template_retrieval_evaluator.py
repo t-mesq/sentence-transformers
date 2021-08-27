@@ -13,7 +13,8 @@ import pandas as pd
 # import seaborn as sns
 from sentence_transformers_extensions import BiSentenceTransformer
 from sentence_transformers_extensions.callbacks import MetricsScoresPrinter
-from sentence_transformers_extensions.datasets import QueryFreqencyWeigther, ANCEWeighter, RoundRobinRankingDataset, InformationRetrievalTemperatureDataset, QuantileQuerySimilarityDataset
+from sentence_transformers_extensions.datasets import QueryFreqencyWeigther, ANCEWeighter, RoundRobinRankingDataset, InformationRetrievalTemperatureDataset, QuantileQuerySimilarityDataset, \
+    RoundRobinQuerySimilarityDataset
 from sentence_transformers_extensions.datasets.RoundRobinTemplateRankingDataset import RoundRobinTemplateRankingDataset
 from sentence_transformers_extensions.readers import IRInputExample
 from sentence_transformers_extensions.evaluation import DocumentRetrievalEvaluator, StackedRetrievalEvaluators
@@ -40,9 +41,9 @@ SPLITS = 'train', 'val', 'test'
 hard_negatives_pooling = 'none'
 temperature = 1
 negatives = 0
-BATCH_SIZE = 35
+BATCH_SIZE = 32
 positives = 1
-shuffle_batches = 'smart'
+shuffle_batches = 'queries-pos'
 in_batch_negatives = True
 loss_name = 'nll'
 EPOCHS = 50
@@ -80,7 +81,9 @@ def get_ir_queries_pairs(train_df, model=None):
     return InformationRetrievalTemperatureDataset(model=model, queries=corpus, corpus=queries.train, rel_queries=rel_docs.train, rel_corpus=rel_queries,
                                                   negatives_weighter=weighters[hard_negatives_pooling], temperature=temperature, batch_size=BATCH_SIZE, shuffle=shuffle_batches, n_negatives=negatives,
                                                   query_first=True)
-
+def get_queries_positives(train_df, model=None):
+    return RoundRobinQuerySimilarityDataset(model=model, queries=queries.train, rel_queries=rel_queries, rel_corpus=rel_docs.train,
+                                            temperature=temperature, batch_size=BATCH_SIZE, shuffle=shuffle_batches, n_negatives=negatives, replace=True)
 
 def get_queries_quantiles(train_df, model=None):
     return QuantileQuerySimilarityDataset(model=model, queries=queries.train, rel_queries=rel_queries, rel_corpus=rel_docs.train,
@@ -94,6 +97,8 @@ def get_train_examples(in_batch_neg, hard_neg_pool, shuffle):
         return get_ir_smart_pairs
     if shuffle == 'ir-queries':
         return get_ir_queries_pairs
+    if shuffle == 'queries-pos':
+        return get_queries_positives
     if shuffle == 'quantile':
         return get_queries_quantiles
     return get_positive_pairs
