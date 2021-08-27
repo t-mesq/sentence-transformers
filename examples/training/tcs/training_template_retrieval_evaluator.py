@@ -131,7 +131,7 @@ train_losses = {'nll': lambda *args, **kwargs: MultiplePositivesAndNegativesRank
                 # 'pair-nll': lambda *args, **kwargs: MultiplePositivesAndNegativesRankingLoss(*args, **kwargs, positives=positives, scale=scale, cross_entropy_loss=PairwiseNLLLoss()),
                 't-nll': lambda *args, **kwargs: TransposedMultiplePositivesAndNegativesRankingLoss(*args, **kwargs, positives=positives, scale=scale),
                 'bi-nll': lambda *args, **kwargs: BiMultiplePositivesAndNegativesRankingLoss(*args, **kwargs, positives=positives, scale=scale),
-                'bace': lambda *args, model, **kwargs: BatchAllCrossEntropyLoss(*args, model=model, scale=scale),
+                'bace': lambda *args, model, **kwargs: BatchAllCrossEntropyLoss(model=model, scale=scale),
                 # 'map': lambda *args, **kwargs: MeanAveragePrecisionLoss(*args, **kwargs, regularization_strength=REGULARIZATION_STRENGTH),
                 # 'ndcg': lambda *args, **kwargs: NormalizedDiscountedCumulativeGainLoss(*args, **kwargs, regularization_strength=REGULARIZATION_STRENGTH),
                 # 'nll+ndcg': lambda *args, **kwargs: NLLAndNDCGLoss(*args, **kwargs, positives=positives, regularization_strength=REGULARIZATION_STRENGTH),

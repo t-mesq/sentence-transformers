@@ -16,15 +16,17 @@ class BatchAllCrossEntropyLoss(nn.Module):
 
     """
 
-    def __init__(self, model: SentenceTransformer, similarity_fct: Callable = util.cos_sim, scale: float = 20.0, loss_fct: Callable = nn.CrossEntropyLoss()):
+    def __init__(self, model: SentenceTransformer, similarity_fct: Callable = util.cos_sim, scale: float = 20.0, loss_fct: Callable = nn.CrossEntropyLoss(), diagonal: bool = False):
         """
 
+        :param diagonal: Use pairs in the diagonal
         :param model: SentenceTransformer model
         :param similarity_fct: similarity function between sentence embeddings. By default, cos_sim. Can also be set to dot product (and then set scale to 1)
         :param scale: Output of similarity function is multiplied by scale value
         :param loss_fct: Loss function to be applied, must take a 2d tensor for the scores, and a 1d tensor for the labels, corresponding to the index of the positive
         """
         super(BatchAllCrossEntropyLoss, self).__init__()
+        self.diagonal = diagonal
         self.model = model
         self.similarity_fct = similarity_fct
         self.scale = scale
@@ -41,16 +43,18 @@ class BatchAllCrossEntropyLoss(nn.Module):
         scores = self.similarity_fct(embeddings, embeddings) * self.scale
         # Computes a boolean adjacency matrix for all valid pairs (labels match)
         label_equal = labels.unsqueeze(0) == labels.unsqueeze(1)
+        if not self.diagonal:  # Remove diagonal?
+            label_equal[torch.eye(labels.size(0), device=labels.device).bool()] = False
         label_ids = label_equal.nonzero()
         # computes the number of possible positives, for each embedding
-        positives_per_line = label_ids[:, 0].unique(return_counts=True)[1]
+        line_ids = label_ids[:, 0]
         # repeats each line of scores per positive
-        repeated_scores = torch.repeat_interleave(scores, positives_per_line, dim=0)
+        repeated_scores = torch.index_select(scores, index=line_ids, dim=0)
         # the correct label of each line
         adjusted_labels = label_ids[:, 1]
 
         # create a mask for the omitted positives in each line
-        repeated_label_equal = torch.repeat_interleave(label_equal, positives_per_line, dim=0)
+        repeated_label_equal = torch.index_select(label_equal, index=line_ids, dim=0)
         labels_mask = repeated_label_equal.scatter(1, adjusted_labels.unsqueeze(1), False)
         adjusted_scores = repeated_scores
         adjusted_scores[labels_mask] = float('-inf')
