@@ -13,7 +13,7 @@ import pandas as pd
 # import seaborn as sns
 from sentence_transformers_extensions import BiSentenceTransformer
 from sentence_transformers_extensions.callbacks import MetricsScoresPrinter
-from sentence_transformers_extensions.datasets import QueryFreqencyWeigther, ANCEWeighter, RoundRobinRankingDataset, InformationRetrievalTemperatureDataset, QuantileQuerySimilarityDataset, \
+from sentence_transformers_extensions.datasets import QueryFreqencyWeigther, ANCEWeighter, RTANCEWeighter,RoundRobinRankingDataset, InformationRetrievalTemperatureDataset, QuantileQuerySimilarityDataset, \
     RoundRobinQuerySimilarityDataset
 from sentence_transformers_extensions.datasets.RoundRobinTemplateRankingDataset import RoundRobinTemplateRankingDataset
 from sentence_transformers_extensions.readers import IRInputExample
@@ -38,12 +38,12 @@ FINETUNNED_MODELS = {"paraphrase-xlm-r-multilingual-v1", 'paraphrase-distilrober
 MODELS_DIR = f'/content/drive/MyDrive/Data/IST/tese/models/{"bi-" * USE_BI_SBERT}sbert'
 SPLITS = 'train', 'val', 'test'
 
-hard_negatives_pooling = 'none'
+hard_negatives_pooling = 'RTANCE'
 temperature = 1
 negatives = 0
 BATCH_SIZE = 192
 positives = 1
-shuffle_batches = 'queries'
+shuffle_batches = 'ir-smart'
 in_batch_negatives = True
 loss_name = 'bace'
 EPOCHS = 50
@@ -58,7 +58,8 @@ scale = 16
 
 weighters = {
     'none': QueryFreqencyWeigther(temperature=16),
-    'ANCE': ANCEWeighter()
+    'ANCE': ANCEWeighter(),
+    'RTANCE': RTANCEWeighter()
 }
 
 
