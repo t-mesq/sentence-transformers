@@ -43,6 +43,7 @@ class RTANCEWeighter(InformationRetrievalWeigther):
         self.corpus = corpus
         self.rel_queries = rel_queries
         self.corpus_embeddings = corpus_embeddings
+        self.counter = self.frequency
 
         if isinstance(model, BiSentenceTransformer):
             self.query_args['encoder'] = 'query'
@@ -60,8 +61,6 @@ class RTANCEWeighter(InformationRetrievalWeigther):
         return np.abs(np.array(list(map(lambda x: x['score'], sorted(query_result_list, key=lambda x: x['corpus_id'])))) + 1.0)
 
     def update_counter(self):
-        assert self.counter <= self.frequency   # shouldn't happen if frequency is reset
-
         if self.counter == self.frequency:
             self.counter = 0
             # update corpus_embeddings
