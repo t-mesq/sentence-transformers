@@ -59,7 +59,7 @@ scale = 16
 weighters = {
     'none': QueryFreqencyWeigther(temperature=16),
     'ANCE': ANCEWeighter(),
-    'RTANCE': RTANCEWeighter(batch_size=BATCH_SIZE, frequency=-1)
+    'RTANCE': RTANCEWeighter(batch_size=BATCH_SIZE, period=-1)
 }
 
 
