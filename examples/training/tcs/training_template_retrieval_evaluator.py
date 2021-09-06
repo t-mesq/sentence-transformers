@@ -33,19 +33,19 @@ QUERY_MACROS = f"{COLLECTIONS_PATH}{DATASET_FOLDER}query-macros.json"
 FILE_NAME = 'doc.json'
 
 USE_GPU = True
-USE_BI_SBERT = False
+USE_BI_SBERT = True
 FINETUNNED_MODELS = {"paraphrase-xlm-r-multilingual-v1", 'paraphrase-distilroberta-base-v1', 'distiluse-base-multilingual-cased-v1'}
 MODELS_DIR = f'/content/drive/MyDrive/Data/IST/tese/models/{"bi-" * USE_BI_SBERT}sbert'
 SPLITS = 'train', 'val', 'test'
 
-hard_negatives_pooling = 'RTANCE'
+hard_negatives_pooling = 'none'
 temperature = 1
-negatives = 0
+negatives = 4
 BATCH_SIZE = 192
 positives = 1
 shuffle_batches = 'ir-smart'
 in_batch_negatives = True
-loss_name = 'bace'
+loss_name = 'nll'
 EPOCHS = 50
 
 queries_splits_df = pd.Series({split: pd.read_json(f"{DATASET_PATH}{split}/{FILE_NAME}") for split in SPLITS})
@@ -112,6 +112,8 @@ def get_train_examples(in_batch_neg, hard_neg_pool, shuffle):
 
 
 model = SentenceTransformer('distiluse-base-multilingual-cased-v1')
+if USE_BI_SBERT:
+    model = BiSentenceTransformer(query_encoder=model, document_encoder=SentenceTransformer('distiluse-base-multilingual-cased-v1'))
 
 ir_evaluators = {split: DocumentRetrievalEvaluator(queries[split].to_dict(), corpus.to_dict(), rel_docs[split].to_dict(), name=split, main_score_function='cos_sim', main_score_metric='mrr@10',
                                                    show_progress_bar=True) for split in ('val',)}

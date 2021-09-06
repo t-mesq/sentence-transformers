@@ -5,7 +5,6 @@ import pandas as pd
 import numpy as np
 from math import ceil
 from collections import defaultdict
-from ..readers import IRInputExample
 from sklearn.preprocessing import normalize
 
 from sentence_transformers import InputExample
@@ -39,7 +38,7 @@ class QuantileQuerySimilarityDataset(IterableDataset):
         for macro_id, s in current_batch_formation.items():
             current_batch.extend(np.random.choice(self.rel_queries[macro_id], s))
         for id in current_batch:
-            yield IRInputExample(texts=([self.queries[id]]), label=self.rel_corpus[id][0], query_first=True)
+            yield InputExample(texts=([self.queries[id]]), label=self.rel_corpus[id][0])
 
     def __len__(self):
         return len(self.queries)

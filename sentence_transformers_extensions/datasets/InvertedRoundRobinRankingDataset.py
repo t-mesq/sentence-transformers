@@ -34,7 +34,7 @@ class InvertedRoundRobinRankingDataset(IterableDataset):
                 q_id = q_ids[0]
                 d_mask = ~self.neg_rel_queries.index.isin(self.rel_corpus[q_id])
                 n_ids = self.neg_rel_queries[d_mask].sample(self.n_negatives, weights=self.negatives_weighter(q_id)[d_mask]).keys()
-                yield IRInputExample(texts=([self.queries[q_id]] + [self.corpus[d_id]] + [self.corpus[d_id] for d_id in n_ids]), label=batch_num, query_first=True)
+                yield IRInputExample(queries=[self.queries[q_id]], documents=([self.corpus[d_id]] + [self.corpus[d_id] for d_id in n_ids]), label=batch_num, query_first=True)
 
     def __len__(self):
         return len(self.queries) // self.n_positives

@@ -34,7 +34,10 @@ class InformationRetrievalTemperatureDataset(IterableDataset):
             d_id = pop_and_append(self.rel_corpus[q_id])
             d_mask = ~self.neg_rel_queries.index.isin(self.rel_corpus[q_id])
             n_ids = self.neg_rel_queries[d_mask].sample(self.n_negatives, weights=self.negatives_weighter(q_id)[d_mask]).keys()
-            yield IRInputExample(texts=([q_text, self.corpus[d_id]] + [self.corpus[n_id] for n_id in n_ids]), label=i, query_first=self.query_first)
+            if self.query_first:
+                yield IRInputExample(queries=[q_text], documents=([self.corpus[d_id]] + [self.corpus[n_id] for n_id in n_ids]), label=i, query_first=True)
+            else:
+                yield IRInputExample(documents=[q_text], queries=([self.corpus[d_id]] + [self.corpus[n_id] for n_id in n_ids]), label=i, query_first=False)
 
     def __len__(self):
         return len(self.queries)

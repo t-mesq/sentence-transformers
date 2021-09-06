@@ -26,7 +26,7 @@ class InformationRetrievalDataset(IterableDataset):
             d_id = list(self.rel_corpus[q_id])[0]
             d_mask = self.rel_queries.index != d_id
             n_ids = self.rel_queries[d_mask].sample(self.n_negatives, weights=self.weighter(q_id)[d_mask]).keys()
-            yield IRInputExample(texts=([q_text, self.corpus[d_id]] + [self.corpus[n_id] for n_id in n_ids]), label=i)
+            yield IRInputExample(queries=[q_text], documents=([self.corpus[d_id]] + [self.corpus[n_id] for n_id in n_ids]), label=i, query_first=True)
 
     def __len__(self):
         return len(self.queries)

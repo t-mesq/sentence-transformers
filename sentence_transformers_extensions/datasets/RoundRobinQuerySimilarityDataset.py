@@ -2,14 +2,12 @@
 
 """
 import math
+from collections import defaultdict
 
 import numpy as np
-from sklearn.preprocessing import normalize
 
+from sentence_transformers import InputExample
 from . import RoundRobinRankingDataset
-from .util import pop_and_append
-from ..readers import IRInputExample
-from collections import defaultdict
 
 
 class RoundRobinQuerySimilarityDataset(RoundRobinRankingDataset):
@@ -31,4 +29,4 @@ class RoundRobinQuerySimilarityDataset(RoundRobinRankingDataset):
                 # q_ids = [q_id, *np.random.choice([p_id for p_id in self.rel_queries[d_id] if q_id != p_id], self.n_positives - 1, replace=False)]
                 q_ids = [*np.random.choice(self.rel_queries[d_id], sample_size, replace=True)]
                 for p_id in q_ids:
-                    yield IRInputExample(texts=([self.queries[p_id]]), label=d_id, query_first=True)
+                    yield InputExample(texts=([self.queries[p_id]]), label=d_id)

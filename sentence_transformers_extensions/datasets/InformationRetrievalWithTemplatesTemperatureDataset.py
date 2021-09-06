@@ -43,7 +43,7 @@ class InformationRetrievalWithTemplatesTemperatureDataset(IterableDataset):
             n_ids = self.neg_rel_queries[d_mask].sample(self.n_negatives, weights=self.negatives_weighter(q_id)[d_mask]).keys()
             n_ids_texts = [self.responses[random.sample(self.rel_queries[n_id], 1)[0]] if random.random() > self.template_weight else self.templates[n_id] for n_id in n_ids]
 
-            yield IRInputExample(texts=[q_text, d_text, *n_ids_texts], label=i, query_first=self.query_first)
+            yield IRInputExample(queries=[q_text], documents=[d_text, *n_ids_texts], label=i, query_first=self.query_first)
 
     def __len__(self):
         return len(self.queries)

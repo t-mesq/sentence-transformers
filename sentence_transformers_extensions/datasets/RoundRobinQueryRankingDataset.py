@@ -2,16 +2,12 @@
 
 """
 import math
-import pickle
-import pandas as pd
-from torch.utils.data import IterableDataset
-import random
+
 import numpy as np
 
+from sentence_transformers import InputExample
 from . import RoundRobinRankingDataset
-from ..readers import IRInputExample
 from .util import pop_and_append
-from sklearn.preprocessing import normalize
 
 
 class RoundRobinQueryRankingDataset(RoundRobinRankingDataset):
@@ -25,4 +21,4 @@ class RoundRobinQueryRankingDataset(RoundRobinRankingDataset):
                 d_mask = ~self.neg_rel_corpus.index.isin(self.rel_queries[d_id])
                 n_ids = self.neg_rel_corpus[d_mask].sample(self.n_negatives, weights=self.negatives_weighter(d_id)[d_mask]).keys()
                 q_ids = np.random.choice(self.rel_queries[d_id], self.n_positives)
-                yield IRInputExample(texts=([self.queries[p_id] for p_id in [q_id, *q_ids]] + [self.queries[q_id] for q_id in n_ids]), label=batch_num, query_first=True)
+                yield InputExample(texts=([self.queries[p_id] for p_id in [q_id, *q_ids]] + [self.queries[q_id] for q_id in n_ids]), label=batch_num)

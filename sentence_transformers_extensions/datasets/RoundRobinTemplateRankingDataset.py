@@ -32,4 +32,4 @@ class RoundRobinTemplateRankingDataset(RoundRobinRankingDataset):
                 n_ids = p.id.sample(self.n_negatives, weights=p.w)
                 doc_text = self.responses[q_ids[0]] if random.random() > self.template_weight else self.corpus[d_id]
 
-                yield IRInputExample(texts=([doc_text, *[self.queries[q_id] for q_id in q_ids], *[self.queries[q_id] for q_id in n_ids]]), label=batch_num, query_first=False)
+                yield IRInputExample(documents=([doc_text]), queries=([self.queries[q_id] for q_id in q_ids] + [self.queries[q_id] for q_id in n_ids]), label=batch_num, query_first=False)

@@ -33,7 +33,7 @@ class RoundRobinRankingDataset(IterableDataset):
             for d_id, q_ids in self.rel_queries.sample(self.batch_size, weights=self.weights).map(self.retrieve_and_roll).items():
                 d_mask = ~self.neg_rel_corpus.index.isin(self.rel_queries[d_id])
                 n_ids = self.neg_rel_corpus[d_mask].sample(self.n_negatives, weights=self.negatives_weighter(d_id)[d_mask]).keys()
-                yield IRInputExample(texts=([self.corpus[d_id]] + [self.queries[q_id] for q_id in q_ids] + [self.queries[q_id] for q_id in n_ids]), label=batch_num, query_first=False)
+                yield IRInputExample(documents=([self.corpus[d_id]]), queries=([self.queries[q_id] for q_id in q_ids] + [self.queries[q_id] for q_id in n_ids]), label=batch_num, query_first=False)
 
     def __len__(self):
         return len(self.queries) // self.n_positives

@@ -164,23 +164,19 @@ class BiSentenceTransformer(SentenceTransformer):
             a batch of tensors for the model
         """
         num_texts = len(batch[0].texts)
-        encoders = ('query', 'document')
-        if not batch[0].query_first:
-            encoders = encoders[::-1]
+        encoders_mask = batch[0].encoder_mask
         texts = [[] for _ in range(num_texts)]
         labels = []
 
         for example in batch:
             for idx, text in enumerate(example.texts):
                 texts[idx].append(text)
-
             labels.append(example.label)
 
         labels = torch.tensor(labels).to(self._target_device)
-
         sentence_features = []
-        for idx in range(num_texts):
-            encoder = encoders[idx != 0]
+
+        for idx, encoder in enumerate(encoders_mask):
             tokenized = self.tokenize(texts[idx], encoder)
             tokenized['encoder'] = encoder
             batch_to_device(tokenized, self._target_device)
