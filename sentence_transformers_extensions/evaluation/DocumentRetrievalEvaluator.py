@@ -1,8 +1,10 @@
+from collections import defaultdict
+
 from sentence_transformers.evaluation import SentenceEvaluator
 import torch
 from torch import Tensor
 import logging
-from tqdm import tqdm, trange
+from tqdm.auto import tqdm, trange
 from sentence_transformers.util import cos_sim, dot_score
 import os
 import numpy as np
@@ -65,14 +67,14 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
                  corpus: Dict[str, str],  # cid => doc
                  relevant_docs: Dict[str, Set[str]],  # qid => Set[cid]
                  corpus_chunk_size: int = 1000,
+                 queries_chunk_size: int = 1000,
                  mrr_at_k: List[int] = [10, 1000],
                  recall_at_k: List[int] = [1, 3, 5, 10, 20, 50, 100, 200, 500],
                  show_progress_bar: bool = False,
                  batch_size: int = 32,
                  name: str = '',
                  write_csv: bool = True,
-                 score_functions: Dict[str, Callable[[Tensor, Tensor], Tensor]] = {'cos_sim': cos_sim,
-                                                                                   'dot_score': dot_score},
+                 score_functions: Dict[str, Callable[[Tensor, Tensor], Tensor]] = {'cos_sim': cos_sim, 'dot_score': dot_score},
                  # Score function, higher=more similar
                  main_score_function: str = None,
                  main_score_metric: str = 'recall@3',
@@ -86,14 +88,15 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
                 self.queries_ids.append(qid)
 
         self.queries = [queries[qid] for qid in self.queries_ids]
-
         self.corpus_ids = list(corpus.keys())
         self.corpus = [corpus[cid] for cid in self.corpus_ids]
 
         self.relevant_docs = relevant_docs
         self.corpus_chunk_size = corpus_chunk_size
+        self.queries_chunk_size = queries_chunk_size
         self.mrr_at_k = mrr_at_k
         self.recall_at_k = recall_at_k
+        self.d_ids = pd.Series(self.relevant_docs).map(lambda x: list(x)[0]).loc[self.queries_ids].values
 
         self.show_progress_bar = show_progress_bar
         self.batch_size = batch_size
@@ -104,7 +107,7 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
         self.main_score_function = main_score_function
 
         self.main_score_metric = \
-        [{'metric': f'{metric}@k', 'k': int(k)} for metric, k in [main_score_metric.split('@')]][0]
+            [{'metric': f'{metric}@k', 'k': int(k)} for metric, k in [main_score_metric.split('@')]][0]
 
         if name:
             name = "_" + name
@@ -145,53 +148,77 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
 
         max_k = max(max(self.mrr_at_k), max(self.recall_at_k))
 
-        # Compute embedding for the queries
-        query_embeddings = model.encode(self.queries, show_progress_bar=self.show_progress_bar,
-                                        batch_size=self.batch_size, convert_to_tensor=True, **query_args)
-
-        queries_result_list = {}
-        for name in self.score_functions:
-            queries_result_list[name] = [{} for _ in range(len(query_embeddings))]
-
-        itr = range(0, len(self.corpus), self.corpus_chunk_size)
-
+        q_itr = range(0, len(self.queries), self.queries_chunk_size)
         if self.show_progress_bar:
-            itr = tqdm(itr, desc='Corpus Chunks', leave=False)
+            itr = tqdm(q_itr, desc='Queries Chunks', leave=False)
 
-        # Iterate over chunks of the corpus
-        for corpus_start_idx in itr:
-            corpus_end_idx = min(corpus_start_idx + self.corpus_chunk_size, len(self.corpus))
+        aux_corpus_embeddings = []
+        scores = {name: defaultdict(list) for name in self.score_functions}
+        # Iterate over chunks of the queries
+        for queries_start_idx in q_itr:
+            queries_end_idx = min(queries_start_idx + self.queries_chunk_size, len(self.queries))
 
-            # Encode chunk of corpus
-            if corpus_embeddings is None:
-                sub_corpus_embeddings = corpus_model.encode(self.corpus[corpus_start_idx:corpus_end_idx],
-                                                            show_progress_bar=False, batch_size=self.batch_size,
-                                                            convert_to_tensor=True, **document_args)
-            else:
-                sub_corpus_embeddings = corpus_embeddings[corpus_start_idx:corpus_end_idx]
+            # Encode chunk of the queries
+            sub_query_embeddings = model.encode(self.queries[queries_start_idx: queries_end_idx], show_progress_bar=False,
+                                            batch_size=self.batch_size, convert_to_tensor=True, **query_args)
 
-            # Compute cosine similarites
-            for name, score_function in self.score_functions.items():
-                cos_scores = score_function(query_embeddings, sub_corpus_embeddings)
+            queries_result_list = {}
+            for name in self.score_functions:
+                queries_result_list[name] = [{} for _ in range(len(sub_query_embeddings))]
 
-                # Get top-k values
-                cos_scores_top_k_values, cos_scores_top_k_idx = torch.topk(cos_scores, min(max_k, len(cos_scores[0])),
-                                                                           dim=1, largest=True, sorted=False)
-                cos_scores_top_k_values = cos_scores_top_k_values.cpu().tolist()
-                cos_scores_top_k_idx = cos_scores_top_k_idx.cpu().tolist()
+            itr = range(0, len(self.corpus), self.corpus_chunk_size)
 
-                for query_itr in range(len(query_embeddings)):
-                    for sub_corpus_id, score in zip(cos_scores_top_k_idx[query_itr],
-                                                    cos_scores_top_k_values[query_itr]):
-                        corpus_id = self.corpus_ids[corpus_start_idx + sub_corpus_id]
-                        if queries_result_list[name][query_itr].get(corpus_id, -9999999) <= score:
-                            queries_result_list[name][query_itr][corpus_id] = score
+            if self.show_progress_bar:
+                itr = tqdm(itr, desc='Corpus Chunks', leave=False)
+
+            # Iterate over chunks of the corpus
+            for corpus_start_idx in itr:
+                corpus_end_idx = min(corpus_start_idx + self.corpus_chunk_size, len(self.corpus))
+
+                # Encode chunk of corpus
+                if corpus_embeddings is None:
+                    sub_corpus_embeddings = corpus_model.encode(self.corpus[corpus_start_idx:corpus_end_idx],
+                                                                show_progress_bar=False, batch_size=self.batch_size,
+                                                                convert_to_tensor=True, **document_args)
+                    aux_corpus_embeddings.append(sub_corpus_embeddings)
+
+                else:
+                    sub_corpus_embeddings = corpus_embeddings[corpus_start_idx:corpus_end_idx]
+
+                # Compute cosine similarites
+                for name, score_function in self.score_functions.items():
+                    cos_scores = score_function(sub_query_embeddings, sub_corpus_embeddings)
+
+                    # Get top-k values
+                    cos_scores_top_k_values, cos_scores_top_k_idx = torch.topk(cos_scores, min(max_k, len(cos_scores[0])),
+                                                                               dim=1, largest=True, sorted=False)
+                    cos_scores_top_k_values = cos_scores_top_k_values.cpu().tolist()
+                    cos_scores_top_k_idx = cos_scores_top_k_idx.cpu().tolist()
+
+                    for query_itr in range(len(sub_query_embeddings)):
+                        for sub_corpus_id, score in zip(cos_scores_top_k_idx[query_itr],
+                                                        cos_scores_top_k_values[query_itr]):
+                            corpus_id = self.corpus_ids[corpus_start_idx + sub_corpus_id]
+                            if queries_result_list[name][query_itr].get(corpus_id, -9999999) <= score:
+                                queries_result_list[name][query_itr][corpus_id] = score
+
+            # update scores
+            for name in scores:
+                for metric, m_scores in self.compute_metrics(queries_result_list[name]).items():
+                    scores[name][metric].append(m_scores)
+
+            # save corpus embeddings for next iterations
+            if aux_corpus_embeddings:
+                corpus_embeddings = torch.cat(aux_corpus_embeddings)
+                aux_corpus_embeddings = None
 
         logger.info("Queries: {}".format(len(self.queries)))
         logger.info("Corpus: {}\n".format(len(self.corpus)))
 
         # Compute scores
-        scores = {name: self.compute_metrics(queries_result_list[name]) for name in self.score_functions}
+        for name in scores:
+            scores_df = {metric: pd.concat(m_scores) for metric, m_scores in scores[name].items()}
+            scores[name] = self.get_averaged_metric_scores(scores_df)
 
         # Output
         for name in self.score_function_names:
@@ -254,15 +281,16 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
                         break
                 MRR[k_val].append(MRR_val)  # Compute averages
 
-        recall_at_k, MRR = map(pd.DataFrame, (recall_at_k, MRR))
+        return {'recall@k': pd.DataFrame(recall_at_k), 'mrr@k': pd.DataFrame(MRR)}
+        # recall_at_k, MRR = map(pd.DataFrame, (recall_at_k, MRR))
 
-        metric_scores = {'recall@k': recall_at_k.mean().to_dict(), 'mrr@k': MRR.mean().to_dict()}
+    def get_averaged_metric_scores(self, metric_scores):
+        mean_metric_scores = {metric: m_scores.mean().to_dict() for metric, m_scores in metric_scores.items()}
+
         if self.compute_macro_metrics:
-            d_ids = pd.Series(self.relevant_docs).map(lambda x: list(x)[0]).loc[self.queries_ids].values
-            macro_average = lambda metric_at_k: metric_at_k.assign(d_id=d_ids).dropna().groupby('d_id').agg(
-                np.mean).mean().to_dict()  # computes mean per document and afterwards, the average of the means.
-            metric_scores.update({'M_recall@k': macro_average(recall_at_k), 'M_mrr@k': macro_average(MRR)})
-        return metric_scores
+            mean_metric_scores.update({f'M_{metric}': self.compute_macro_average(m_scores) for metric, m_scores in metric_scores.items()})
+
+        return mean_metric_scores
 
     def output_scores(self, scores):
         for k in scores['recall@k']:
@@ -270,3 +298,7 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
 
         for k in scores['mrr@k']:
             logger.info("MRR@{}: {:.4f}".format(k, scores['mrr@k'][k]))
+
+    def compute_macro_average(self, metric_at_k):
+        # computes mean per document and afterwards, the average of the means.
+        return metric_at_k.assign(d_id=self.d_ids).dropna().groupby('d_id').agg(np.mean).mean().to_dict()

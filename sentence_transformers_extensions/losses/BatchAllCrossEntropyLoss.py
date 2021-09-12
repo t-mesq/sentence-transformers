@@ -16,7 +16,7 @@ class BatchAllCrossEntropyLoss(nn.Module):
 
     """
 
-    def __init__(self, model: SentenceTransformer, similarity_fct: Callable = util.cos_sim, scale: float = 20.0, loss_fct: Callable = nn.CrossEntropyLoss(), diagonal: bool = False):
+    def __init__(self, model: SentenceTransformer, similarity_fct: Callable = util.cos_sim, scale: float = 20.0, loss_fct: Callable = nn.CrossEntropyLoss(), diagonal: bool = True):
         """
 
         :param diagonal: Use pairs in the diagonal

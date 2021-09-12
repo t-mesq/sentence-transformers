@@ -58,11 +58,29 @@ class ModularLoss(nn.Module):
         return adjusted_scores
 
 
+#
+# class BatchAggregator:
+#     def __init__(self, anchors=1, positives=1):
+#         self.anchors = anchors
+#         self.positives = positives
+#
+#     def __call__(self, modular_loss: ModularLoss, reps: Union[Tuple[Tensor, ...], List[Tensor]]):
+
+
 def agg_in_batch_negatives(modular_loss: ModularLoss, reps: Union[Tuple[Tensor, ...], List[Tensor]]):
     embeddings_a = reps[0]
     embeddings_b = torch.cat(reps[1:])
     scores = modular_loss.similarity_fct(embeddings_a, embeddings_b)
     labels = torch.tensor(range(len(embeddings_a) * modular_loss.positives), dtype=torch.long, device=scores.device).reshape(-1, len(scores)).transpose(0, 1)
+
+    return scores, labels
+
+
+def agg_anchors_in_batch_negatives(modular_loss: ModularLoss, reps: Union[Tuple[Tensor, ...], List[Tensor]]):
+    embeddings_a = torch.cat(reps[:modular_loss.positives])
+    embeddings_b = torch.cat(reps[modular_loss.positives:])
+    scores = modular_loss.similarity_fct(embeddings_a, embeddings_b)
+    labels = torch.tensor(range(len(embeddings_a) // modular_loss.positives), dtype=torch.long, device=scores.device).reshape(-1, len(scores)).transpose(0, 1).repeat(modular_loss.positives, 1)
 
     return scores, labels
 

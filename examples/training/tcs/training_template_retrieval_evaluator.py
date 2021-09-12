@@ -19,7 +19,7 @@ from sentence_transformers_extensions.datasets.RoundRobinTemplateRankingDataset 
 from sentence_transformers_extensions.readers import IRInputExample
 from sentence_transformers_extensions.evaluation import DocumentRetrievalEvaluator, StackedRetrievalEvaluators
 
-from sentence_transformers_extensions.losses import MultiplePositivesAndNegativesRankingLoss, agg_in_batch_negatives, \
+from sentence_transformers_extensions.losses import MultiplePositivesAndNegativesRankingLoss, agg_in_batch_negatives, agg_anchors_in_batch_negatives, \
     agg_unique, agg_all  # , NormalizedDiscountedCumulativeGainLoss, NLLAndNDCGLoss, NLLAndMAPLoss, MeanAveragePrecisionLoss
 from sentence_transformers_extensions.losses import TransposedMultiplePositivesAndNegativesRankingLoss, BiMultiplePositivesAndNegativesRankingLoss, BatchAllCrossEntropyLoss
 
@@ -38,7 +38,7 @@ FINETUNNED_MODELS = {"paraphrase-xlm-r-multilingual-v1", 'paraphrase-distilrober
 MODELS_DIR = f'/content/drive/MyDrive/Data/IST/tese/models/{"bi-" * USE_BI_SBERT}sbert'
 SPLITS = 'train', 'val', 'test'
 
-hard_negatives_pooling = 'none'
+hard_negatives_pooling = 'RTANCE'
 temperature = 1
 negatives = 4
 BATCH_SIZE = 192
@@ -140,9 +140,9 @@ train_losses = {'nll': lambda *args, **kwargs: MultiplePositivesAndNegativesRank
                 # 'nll+ndcg': lambda *args, **kwargs: NLLAndNDCGLoss(*args, **kwargs, positives=positives, regularization_strength=REGULARIZATION_STRENGTH),
                 # 'nll+map': lambda *args, **kwargs: NLLAndMAPLoss(*args, **kwargs, positives=positives, regularization_strength=REGULARIZATION_STRENGTH)
                 }
-agg = agg_all if in_batch_negatives else agg_unique
+agg = agg_anchors_in_batch_negatives if in_batch_negatives else agg_unique
 train_loss = train_losses[loss_name](model=model, agg_fct=agg)
-# stacked_evaluator(model, '', 1, 0)
+stacked_evaluator(model, '', 1, 0)
 model.fit(train_objectives=[(train_dataloader, train_loss)],
           evaluator=stacked_evaluator,
           epochs=EPOCHS,
