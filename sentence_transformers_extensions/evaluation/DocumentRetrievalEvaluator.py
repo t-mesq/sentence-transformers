@@ -207,10 +207,10 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
                 for metric, m_scores in self.compute_metrics(queries_result_list[name]).items():
                     scores[name][metric].append(m_scores)
 
-            # save corpus embeddings for next iterations
-            if aux_corpus_embeddings:
-                corpus_embeddings = torch.cat(aux_corpus_embeddings)
-                aux_corpus_embeddings = None
+            # # save corpus embeddings for next iterations
+            # if aux_corpus_embeddings:
+            #     corpus_embeddings = torch.cat(aux_corpus_embeddings)
+            #     aux_corpus_embeddings = None
 
         logger.info("Queries: {}".format(len(self.queries)))
         logger.info("Corpus: {}\n".format(len(self.corpus)))
