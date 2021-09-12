@@ -22,6 +22,7 @@ class TemplateRetrievalEvaluator(DocumentRetrievalEvaluator):
                  corpus: Dict[str, str],  # cid => doc
                  relevant_docs: Dict[str, Set[str]],  # qid => Set[cid]
                  corpus_chunk_size: int = 1000,
+                 queries_chunk_size: int = 1000,
                  mrr_at_k: List[int] = [10, 1000],
                  recall_at_k: List[int] = [1, 3, 5, 10, 20, 50, 100, 200, 500],
                  show_progress_bar: bool = False,
@@ -37,6 +38,7 @@ class TemplateRetrievalEvaluator(DocumentRetrievalEvaluator):
                          corpus = corpus,
                          relevant_docs=relevant_docs,
                          corpus_chunk_size=corpus_chunk_size,
+                         queries_chunk_size=queries_chunk_size,
                          mrr_at_k=mrr_at_k,
                          recall_at_k=recall_at_k,
                          show_progress_bar=show_progress_bar,

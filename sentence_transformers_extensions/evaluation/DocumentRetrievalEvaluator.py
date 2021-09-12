@@ -204,7 +204,7 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
 
             # update scores
             for name in scores:
-                for metric, m_scores in self.compute_metrics(queries_result_list[name]).items():
+                for metric, m_scores in self.compute_metrics(queries_result_list[name], q_itr=queries_start_idx).items():
                     scores[name][metric].append(m_scores)
 
             # save corpus embeddings for next iterations
@@ -250,14 +250,14 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
             score = scores[self.main_score_function][self.main_score_metric['metric']][self.main_score_metric['k']]
         return MetricsScore(score, scores)
 
-    def compute_metrics(self, queries_result_list: List[Dict]):
+    def compute_metrics(self, queries_result_list: List[Dict], q_itr=0):
         # Init score computation values
         recall_at_k = {k: [] for k in self.recall_at_k}
         MRR = {k: [] for k in self.mrr_at_k}
 
         # Compute scores on results
         for query_itr in range(len(queries_result_list)):
-            query_id = self.queries_ids[query_itr]
+            query_id = self.queries_ids[query_itr + q_itr]
 
             # Sort scores
             top_hits = sorted(queries_result_list[query_itr], key=queries_result_list[query_itr].get, reverse=True)
