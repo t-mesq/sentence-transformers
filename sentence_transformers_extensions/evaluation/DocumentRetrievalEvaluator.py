@@ -150,7 +150,7 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
 
         q_itr = range(0, len(self.queries), self.queries_chunk_size)
         if self.show_progress_bar:
-            itr = tqdm(q_itr, desc='Queries Chunks', leave=False)
+            q_itr = tqdm(q_itr, desc='Queries Chunks', leave=False)
 
         aux_corpus_embeddings = []
         scores = {name: defaultdict(list) for name in self.score_functions}
