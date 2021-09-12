@@ -116,7 +116,7 @@ if USE_BI_SBERT:
     model = BiSentenceTransformer(query_encoder=model, document_encoder=SentenceTransformer('distiluse-base-multilingual-cased-v1'))
 
 ir_evaluators = {split: DocumentRetrievalEvaluator(queries[split].to_dict(), corpus.to_dict(), rel_docs[split].to_dict(), name=split, main_score_function='cos_sim', main_score_metric='mrr@10',
-                                                   show_progress_bar=True) for split in ('val',)}
+                                                   show_progress_bar=True) for split in ('train', 'val',)}
 # x = ir_evaluators['val'](model, output_path="", epoch= -1, steps = -1, corpus_model=None, corpus_embeddings= None)
 stacked_evaluator = StackedRetrievalEvaluators('val', **ir_evaluators)
 

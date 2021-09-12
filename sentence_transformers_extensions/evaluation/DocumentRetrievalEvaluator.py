@@ -185,7 +185,7 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
                 else:
                     sub_corpus_embeddings = corpus_embeddings[corpus_start_idx:corpus_end_idx]
 
-                # Compute cosine similarites
+                # Compute cosine similarities
                 for name, score_function in self.score_functions.items():
                     cos_scores = score_function(sub_query_embeddings, sub_corpus_embeddings)
 
@@ -207,17 +207,17 @@ class DocumentRetrievalEvaluator(SentenceEvaluator):
                 for metric, m_scores in self.compute_metrics(queries_result_list[name]).items():
                     scores[name][metric].append(m_scores)
 
-            # # save corpus embeddings for next iterations
-            # if aux_corpus_embeddings:
-            #     corpus_embeddings = torch.cat(aux_corpus_embeddings)
-            #     aux_corpus_embeddings = None
+            # save corpus embeddings for next iterations
+            if aux_corpus_embeddings:
+                corpus_embeddings = torch.cat(aux_corpus_embeddings)
+                aux_corpus_embeddings = None
 
         logger.info("Queries: {}".format(len(self.queries)))
         logger.info("Corpus: {}\n".format(len(self.corpus)))
 
         # Compute scores
         for name in scores:
-            scores_df = {metric: pd.concat(m_scores) for metric, m_scores in scores[name].items()}
+            scores_df = {metric: pd.concat(m_scores, ignore_index=True) for metric, m_scores in scores[name].items()}
             scores[name] = self.get_averaged_metric_scores(scores_df)
 
         # Output
