@@ -31,12 +31,13 @@ class QueryExclusiveSimilarityDataset(RoundRobinRankingDataset):
                     if current_batch_size >= self.batch_size:
                         break
 
-                    if (current_batch_formation[d_id] < self.counts[d_id]) and (d_id in available_d_ids):
-                        n_samples = min(self.n_positives, self.batch_size - current_batch_size, self.counts[d_id] - current_batch_formation[d_id])
-                        current_batch_formation[d_id] += n_samples
-                        current_batch_size += n_samples
-                    else:
-                        available_d_ids.remove(d_id)
+                    if d_id in available_d_ids:
+                        if current_batch_formation[d_id] < self.counts[d_id]:
+                            n_samples = min(self.n_positives, self.batch_size - current_batch_size, self.counts[d_id] - current_batch_formation[d_id])
+                            current_batch_formation[d_id] += n_samples
+                            current_batch_size += n_samples
+                        else:
+                            available_d_ids.remove(d_id)
 
             for d_id, sample_size in current_batch_formation.items():
                 q_ids = [*np.random.choice(self.rel_queries[d_id], sample_size, replace=False)]
