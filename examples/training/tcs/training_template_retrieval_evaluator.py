@@ -13,8 +13,7 @@ import pandas as pd
 # import seaborn as sns
 from sentence_transformers_extensions import BiSentenceTransformer
 from sentence_transformers_extensions.callbacks import MetricsScoresPrinter
-from sentence_transformers_extensions.datasets import QueryFreqencyWeigther, ANCEWeighter, RTANCEWeighter,RoundRobinRankingDataset, InformationRetrievalTemperatureDataset, QuantileQuerySimilarityDataset, \
-    RoundRobinQuerySimilarityDataset
+from sentence_transformers_extensions.datasets import *
 from sentence_transformers_extensions.datasets.RoundRobinTemplateRankingDataset import RoundRobinTemplateRankingDataset
 from sentence_transformers_extensions.readers import IRInputExample
 from sentence_transformers_extensions.evaluation import DocumentRetrievalEvaluator, StackedRetrievalEvaluators
@@ -43,7 +42,7 @@ temperature = 1
 negatives = 4
 BATCH_SIZE = 192
 positives = 1
-shuffle_batches = 'ir-smart'
+shuffle_batches = 'queries+'
 in_batch_negatives = True
 loss_name = 'nll'
 EPOCHS = 50
@@ -76,7 +75,6 @@ def get_smart_pairs(train_df, model=None):
                                             n_positives=positives, shuffle=shuffle_batches,
                                             temperature=temperature, n_negatives=negatives, negatives_weighter=weighters[hard_negatives_pooling], template_weight=1)
 
-
 def get_ir_smart_pairs(train_df, model=None):
     return InformationRetrievalTemperatureDataset(model=model, queries=queries.train, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_docs.train,
                                                   negatives_weighter=weighters[hard_negatives_pooling], temperature=temperature, batch_size=BATCH_SIZE, shuffle=shuffle_batches, n_negatives=negatives)
@@ -88,6 +86,10 @@ def get_ir_queries_pairs(train_df, model=None):
                                                   query_first=True)
 def get_queries_positives(train_df, model=None):
     return RoundRobinQuerySimilarityDataset(model=model, queries=queries.train, rel_queries=rel_queries, rel_corpus=rel_docs.train,
+                                            temperature=temperature, batch_size=BATCH_SIZE, shuffle=shuffle_batches, n_negatives=negatives, replace=True)
+
+def get_queries_positives_plus(train_df, model=None):
+    return QueryExclusiveSimilarityDataset(model=model, queries=queries.train, rel_queries=rel_queries, rel_corpus=rel_docs.train,
                                             temperature=temperature, batch_size=BATCH_SIZE, shuffle=shuffle_batches, n_negatives=negatives, replace=True)
 
 def get_queries_quantiles(train_df, model=None):
@@ -106,6 +108,8 @@ def get_train_examples(in_batch_neg, hard_neg_pool, shuffle):
         return get_ir_queries_pairs
     if shuffle == 'queries-pos':
         return get_queries_positives
+    if shuffle == 'queries+':
+        return get_queries_positives_plus
     if shuffle == 'quantile':
         return get_queries_quantiles
     return get_positive_pairs
@@ -142,7 +146,7 @@ train_losses = {'nll': lambda *args, **kwargs: MultiplePositivesAndNegativesRank
                 }
 agg = agg_anchors_in_batch_negatives if in_batch_negatives else agg_unique
 train_loss = train_losses[loss_name](model=model, agg_fct=agg)
-stacked_evaluator(model, '', 1, 0)
+# stacked_evaluator(model, '', 1, 0)
 model.fit(train_objectives=[(train_dataloader, train_loss)],
           evaluator=stacked_evaluator,
           epochs=EPOCHS,
