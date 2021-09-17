@@ -7,7 +7,7 @@ class IRInputExample(InputExample):
     Structure for one input example with texts, the label and a unique id
     """
 
-    def __init__(self, guid: str = '', queries: List[str] = None, documents: List[str] = None, label: Union[int, float] = 0, query_first: bool = True):
+    def __init__(self, guid: str = '', queries: List[str] = None, documents: List[str] = None, label: Union[int, float] = 0, query_first: bool = True, labels: Union[int, float] = None):
         """
         Creates one IRInputExample with the given queries, documents, guid and label
 
@@ -22,6 +22,8 @@ class IRInputExample(InputExample):
             the label for the example
         :param query_first: bool
             specify if IR examples anchor documents or queries
+        :param labels
+            the labels for ranking examples
         """
 
         queries_mask = len(queries) * ['query']
@@ -37,7 +39,8 @@ class IRInputExample(InputExample):
         self.query_first = query_first
         self.queries = queries
         self.documents = documents
+        self.labels = labels
 
     def __str__(self):
-        format_str = "<InputExample> label: {}, queries: {}, documents: {}"
-        return format_str.format(str(self.label), ";\n\t".join(self.queries), ";\n\t".join(self.documents))
+        format_str = "<InputExample> label: {}, queries: {}, documents: {}, labels: {}"
+        return format_str.format(str(self.label), ";\n\t".join(self.queries), ";\n\t".join(self.documents), self.labels)

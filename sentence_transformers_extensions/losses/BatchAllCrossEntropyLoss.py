@@ -60,3 +60,30 @@ class BatchAllCrossEntropyLoss(nn.Module):
         adjusted_scores[labels_mask] = float('-inf')
 
         return adjusted_scores, adjusted_labels
+
+
+class RankingBatchAllCrossEntropyLoss(BatchAllCrossEntropyLoss):
+    """
+    Same as BatchAllCrossEntropyLoss but adapted for ranking examples
+    """
+
+    def __init__(self, model: SentenceTransformer, similarity_fct: Callable = util.cos_sim, scale: float = 20.0, loss_fct: Callable = nn.CrossEntropyLoss(), diagonal: bool = True):
+        """
+
+        :param diagonal: Use pairs in the diagonal
+        :param model: SentenceTransformer model
+        :param similarity_fct: similarity function between sentence embeddings. By default, cos_sim. Can also be set to dot product (and then set scale to 1)
+        :param scale: Output of similarity function is multiplied by scale value
+        :param loss_fct: Loss function to be applied, must take a 2d tensor for the scores, and a 1d tensor for the labels, corresponding to the index of the positive
+        """
+        super(RankingBatchAllCrossEntropyLoss, self).__init__(model=model, similarity_fct=similarity_fct, scale=scale, loss_fct=loss_fct, diagonal=diagonal)
+
+
+    def forward(self, sentence_features: Iterable[Dict[str, Tensor]], labels: Tensor):
+        reps = [self.model(sentence_feature)['sentence_embedding'] for sentence_feature in sentence_features]
+        embeddings = torch.cat(reps)
+        flat_labels = torch.flatten(labels)
+
+        scores, labels = self.get_all_possible_scores(flat_labels, embeddings)
+
+        return self.loss_fct(scores, labels)

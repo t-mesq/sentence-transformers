@@ -33,20 +33,20 @@ class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
         for batch_num in range(math.ceil(self.__len__() / self.batch_size)):
             available_docs = set()
             for d_id, q_ids in self.rel_queries.sample(self.batch_size, weights=self.weights).map(self.get_positives_sample).items():
+                labels = [d_id] * (self.n_positives + 1)    # n_positives queries + positive document
                 available_docs.add(d_id)
-                yield IRInputExample(documents=[self.corpus[d_id]], queries=[], label=d_id, query_first=False)
 
+                n_ids = []
                 for q_id, sample_size in zip(q_ids, self.negative_sample_sizes):
-                    yield IRInputExample(queries=[self.queries[q_id]], documents=[], label=d_id, query_first=True)
-
                     if sample_size == 0:
                         break
 
                     d_mask = ~self.neg_rel_queries.index.isin(available_docs)
-                    n_ids = self.neg_rel_queries[d_mask].sample(sample_size, weights=self.negatives_weighter(q_id)[d_mask]).keys()
+                    n_ids.extend(self.neg_rel_queries[d_mask].sample(sample_size, weights=self.negatives_weighter(q_id)[d_mask]).keys())
                     available_docs.update(n_ids)
-                    for n_id in n_ids:
-                        yield IRInputExample(queries=[], documents=[self.corpus[d_id]], label=n_id, query_first=False)
+
+                labels.extend(n_ids)
+                yield IRInputExample(queries=[self.queries[q_id] for q_id in q_ids], documents=([self.corpus[d_id]] + [self.corpus[d_id] for d_id in n_ids]), label=batch_num, query_first=True, labels=labels)
 
     def __len__(self):
         return len(self.queries) // self.n_positives
