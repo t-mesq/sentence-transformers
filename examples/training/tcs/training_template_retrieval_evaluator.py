@@ -37,14 +37,14 @@ FINETUNNED_MODELS = {"paraphrase-xlm-r-multilingual-v1", 'paraphrase-distilrober
 MODELS_DIR = f'/content/drive/MyDrive/Data/IST/tese/models/{"bi-" * USE_BI_SBERT}sbert'
 SPLITS = 'train', 'val', 'test'
 
-hard_negatives_pooling = 'RTANCE'
+hard_negatives_pooling = 'none'
 temperature = 1
 negatives = 4
 BATCH_SIZE = 192
 positives = 1
-shuffle_batches = 'queries+'
+shuffle_batches = 'ir-labeled'
 in_batch_negatives = True
-loss_name = 'nll'
+loss_name = 'bace'
 EPOCHS = 50
 
 queries_splits_df = pd.Series({split: pd.read_json(f"{DATASET_PATH}{split}/{FILE_NAME}") for split in SPLITS})
@@ -75,6 +75,11 @@ def get_smart_pairs(train_df, model=None):
                                             n_positives=positives, shuffle=shuffle_batches,
                                             temperature=temperature, n_negatives=negatives, negatives_weighter=weighters[hard_negatives_pooling], template_weight=1)
 
+def get_labeled_ir(train_df, model=None):
+    return InvertedRoundRobinRankingSimilarityDataset(model=model, queries=queries.train, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_docs.train, batch_size=BATCH_SIZE,
+                                            n_positives=positives, shuffle=shuffle_batches,
+                                            temperature=temperature, n_negatives=negatives, negatives_weighter=weighters[hard_negatives_pooling])
+
 def get_ir_smart_pairs(train_df, model=None):
     return InformationRetrievalTemperatureDataset(model=model, queries=queries.train, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_docs.train,
                                                   negatives_weighter=weighters[hard_negatives_pooling], temperature=temperature, batch_size=BATCH_SIZE, shuffle=shuffle_batches, n_negatives=negatives)
@@ -104,6 +109,8 @@ def get_train_examples(in_batch_neg, hard_neg_pool, shuffle):
         return get_smart_pairs
     if shuffle == 'ir-smart':
         return get_ir_smart_pairs
+    if shuffle == 'ir-labeled':
+        return get_labeled_ir
     if shuffle == 'ir-queries':
         return get_ir_queries_pairs
     if shuffle == 'queries-pos':

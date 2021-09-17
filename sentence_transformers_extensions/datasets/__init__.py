@@ -9,4 +9,5 @@ from .RoundRobinQueryRankingDataset import *
 from .RoundRobinQuerySimilarityDataset import *
 from .QuantileQuerySimilarityDataset import *
 from .QueryExclusiveSimilarityDataset import *
+from .InvertedRoundRobinRankingSimilarityDataset import *
 from .weigthers import *
