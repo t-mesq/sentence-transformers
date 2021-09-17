@@ -166,18 +166,20 @@ class BiSentenceTransformer(SentenceTransformer):
         num_texts = len(batch[0].texts)
         encoders_mask = batch[0].encoder_mask
         texts = [[] for _ in range(num_texts)]
-        ranking_labels = [[] for _ in range(num_texts)]
         labels = []
 
         for example in batch:
             for idx, text in enumerate(example.texts):
                 texts[idx].append(text)
-            for idx, ranking_label in enumerate(example.labels):
-                ranking_labels[idx].append(ranking_label)
             labels.append(example.label)
 
         if batch[0].labels:
+            ranking_labels = [[] for _ in range(num_texts)]
+            for example in batch:
+                for idx, ranking_label in enumerate(example.labels):
+                    ranking_labels[idx].append(ranking_label)
             labels = ranking_labels
+
         labels = torch.tensor(labels).to(self._target_device)
         sentence_features = []
 
