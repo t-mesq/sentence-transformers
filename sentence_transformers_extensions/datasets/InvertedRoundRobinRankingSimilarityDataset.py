@@ -31,8 +31,9 @@ class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
     def __iter__(self):
         self.negatives_weighter.setup(self.model, queries=self.queries.to_dict(), corpus=self.corpus.to_dict(), rel_queries=self.neg_rel_queries.to_dict())
         for batch_num in range(math.ceil(self.__len__() / self.batch_size)):
-            available_docs = set()
-            for d_id, q_ids in self.rel_queries.sample(self.batch_size, weights=self.weights).map(self.get_positives_sample).items():
+            sampled_ids = self.rel_queries.sample(self.batch_size, weights=self.weights).map(self.get_positives_sample)
+            available_docs = set(sampled_ids.keys())
+            for d_id, q_ids in sampled_ids.items():
                 labels = [d_id] * (self.n_positives + 1)    # n_positives queries + positive document
                 available_docs.add(d_id)
 
