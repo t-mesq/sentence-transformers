@@ -20,7 +20,8 @@ from sentence_transformers_extensions.evaluation import DocumentRetrievalEvaluat
 
 from sentence_transformers_extensions.losses import MultiplePositivesAndNegativesRankingLoss, agg_in_batch_negatives, agg_anchors_in_batch_negatives, \
     agg_unique, agg_all  # , NormalizedDiscountedCumulativeGainLoss, NLLAndNDCGLoss, NLLAndMAPLoss, MeanAveragePrecisionLoss
-from sentence_transformers_extensions.losses import TransposedMultiplePositivesAndNegativesRankingLoss, BiMultiplePositivesAndNegativesRankingLoss, BatchAllCrossEntropyLoss, RankingBatchAllCrossEntropyLoss
+from sentence_transformers_extensions.losses import TransposedMultiplePositivesAndNegativesRankingLoss, BiMultiplePositivesAndNegativesRankingLoss, BatchAllCrossEntropyLoss, RankingBatchAllCrossEntropyLoss,\
+    RankingBatchQueriesCrossEntropyLoss, LTRCrossEntropyLoss
 
 tqdm.pandas()
 
@@ -39,12 +40,12 @@ SPLITS = 'train', 'val', 'test'
 
 hard_negatives_pooling = 'none'
 temperature = 1
-negatives = 4
-BATCH_SIZE = 32
+negatives = 2
+BATCH_SIZE = 8
 positives = 2
 shuffle_batches = 'ir-labeled'
 in_batch_negatives = True
-loss_name = 'rbace'
+loss_name = 'rbqce-ltr'
 EPOCHS = 50
 
 queries_splits_df = pd.Series({split: pd.read_json(f"{DATASET_PATH}{split}/{FILE_NAME}") for split in SPLITS})
@@ -147,6 +148,8 @@ train_losses = {'nll': lambda *args, **kwargs: MultiplePositivesAndNegativesRank
                 'bi-nll': lambda *args, **kwargs: BiMultiplePositivesAndNegativesRankingLoss(*args, **kwargs, positives=positives, scale=scale),
                 'bace': lambda *args, model, **kwargs: BatchAllCrossEntropyLoss(model=model, scale=scale),
                 'rbace': lambda *args, model, **kwargs: RankingBatchAllCrossEntropyLoss(model=model, scale=scale),
+                'rbqce': lambda *args, model, **kwargs: RankingBatchQueriesCrossEntropyLoss(model=model, scale=scale),
+                'rbqce-ltr': lambda *args, model, **kwargs: RankingBatchQueriesCrossEntropyLoss(model=model, scale=scale, loss_fct=LTRCrossEntropyLoss()),
                 # 'map': lambda *args, **kwargs: MeanAveragePrecisionLoss(*args, **kwargs, regularization_strength=REGULARIZATION_STRENGTH),
                 # 'ndcg': lambda *args, **kwargs: NormalizedDiscountedCumulativeGainLoss(*args, **kwargs, regularization_strength=REGULARIZATION_STRENGTH),
                 # 'nll+ndcg': lambda *args, **kwargs: NLLAndNDCGLoss(*args, **kwargs, positives=positives, regularization_strength=REGULARIZATION_STRENGTH),

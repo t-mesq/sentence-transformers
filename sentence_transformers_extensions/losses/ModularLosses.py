@@ -132,3 +132,11 @@ class AggregatedModularLoss(ModularLoss):
         :param similarity_fct: similarity function between sentence embeddings. By default, cos_sim. Can also be set to dot product (and then set scale to 1)
         """
         super(AggregatedModularLoss, self).__init__(model=model, agg_fct=agg_fct, loss_fct=loss_fct, positives=positives, scale=scale, similarity_fct=similarity_fct)
+
+
+class LTRCrossEntropyLoss(nn.CrossEntropyLoss):
+    def forward(self, input: Tensor, target: Tensor) -> Tensor:
+        target_scores = input[range(len(input)), target]
+        filtered_input = torch.where(input < target_scores.unsqueeze(1), torch.tensor(float('-inf'), dtype=input.dtype), input)
+        return super().forward(filtered_input, target)
+

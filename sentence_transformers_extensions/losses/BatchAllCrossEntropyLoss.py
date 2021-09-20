@@ -38,13 +38,16 @@ class BatchAllCrossEntropyLoss(nn.Module):
 
         return self.loss_fct(scores, labels)
 
-    def get_all_possible_scores(self, labels: Tensor, embeddings: Tensor):
+    def get_all_possible_scores(self, labels_a: Tensor, embeddings_a: Tensor, labels_b: Tensor = None, embeddings_b: Tensor = None):
+        if labels_b is None:
+            labels_b = labels_a
+            embeddings_b = embeddings_a
         # Compute the similarity function over all pairs
-        scores = self.similarity_fct(embeddings, embeddings) * self.scale
+        scores = self.similarity_fct(embeddings_a, embeddings_b) * self.scale
         # Computes a boolean adjacency matrix for all valid pairs (labels match)
-        label_equal = labels.unsqueeze(0) == labels.unsqueeze(1)
-        if not self.diagonal:  # Remove diagonal?
-            label_equal[torch.eye(labels.size(0), device=labels.device).bool()] = False
+        label_equal = labels_a.unsqueeze(1) == labels_b.unsqueeze(0)
+        if torch.equal(embeddings_a, embeddings_b) and (not self.diagonal):  # Remove diagonal?
+            label_equal[torch.eye(labels_a.size(0), device=labels_a.device).bool()] = False
         label_ids = label_equal.nonzero()
         # computes the number of possible positives, for each embedding
         line_ids = label_ids[:, 0]
@@ -85,5 +88,49 @@ class RankingBatchAllCrossEntropyLoss(BatchAllCrossEntropyLoss):
         flat_labels = torch.flatten(labels)
 
         scores, labels = self.get_all_possible_scores(flat_labels, embeddings)
+
+        return self.loss_fct(scores, labels)
+
+
+class RankingBatchQueriesCrossEntropyLoss(RankingBatchAllCrossEntropyLoss):
+    """
+    Same as BatchAllCrossEntropyLoss but adapted for ranking examples
+    """
+
+    def __init__(self, model: SentenceTransformer, similarity_fct: Callable = util.cos_sim, scale: float = 20.0, loss_fct: Callable = nn.CrossEntropyLoss(), diagonal: bool = True):
+        """
+
+        :param diagonal: Use pairs in the diagonal
+        :param model: SentenceTransformer model
+        :param similarity_fct: similarity function between sentence embeddings. By default, cos_sim. Can also be set to dot product (and then set scale to 1)
+        :param scale: Output of similarity function is multiplied by scale value
+        :param loss_fct: Loss function to be applied, must take a 2d tensor for the scores, and a 1d tensor for the labels, corresponding to the index of the positive
+        """
+        super(RankingBatchQueriesCrossEntropyLoss, self).__init__(model=model, similarity_fct=similarity_fct, scale=scale, loss_fct=loss_fct, diagonal=diagonal)
+
+
+    def forward(self, sentence_features: Iterable[Dict[str, Tensor]], labels: Tensor):
+        query_reps = []
+        query_labels = []
+        document_reps = []
+        document_labels = []
+
+        for sentence_feature, label in zip(sentence_features, labels):
+            rep = self.model(sentence_feature)
+            if rep['encoder'] == 'query':
+                query_reps.append(rep['sentence_embedding'])
+                query_labels.append(label)
+
+            else:
+                document_reps.append(rep['sentence_embedding'])
+                document_labels.append(label)
+
+        query_embeddings = torch.cat(query_reps)
+        document_embeddings = torch.cat(document_reps)
+
+        query_labels = torch.cat(query_labels)
+        document_labels = torch.cat(document_labels)
+
+        scores, labels = self.get_all_possible_scores(query_labels, query_embeddings, document_labels, document_embeddings)
 
         return self.loss_fct(scores, labels)
