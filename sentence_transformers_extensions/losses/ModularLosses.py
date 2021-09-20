@@ -137,6 +137,6 @@ class AggregatedModularLoss(ModularLoss):
 class LTRCrossEntropyLoss(nn.CrossEntropyLoss):
     def forward(self, input: Tensor, target: Tensor) -> Tensor:
         target_scores = input[range(len(input)), target]
-        filtered_input = torch.where(input < target_scores.unsqueeze(1), torch.tensor(float('-inf'), dtype=input.dtype), input)
+        filtered_input = torch.where(input < target_scores.unsqueeze(1), torch.tensor(float('-inf'), dtype=input.dtype, device=input.device), input)
         return super().forward(filtered_input, target)
 
