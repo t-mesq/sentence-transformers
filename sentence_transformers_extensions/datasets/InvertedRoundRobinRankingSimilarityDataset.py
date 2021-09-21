@@ -12,7 +12,8 @@ from sklearn.preprocessing import normalize
 
 
 class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
-    def __init__(self, model, queries, corpus, rel_queries, rel_corpus, negatives_weighter, batch_size=32, n_positives=2, temperature=1, shuffle=True, n_negatives=0, neg_rel_queries=None):
+    def __init__(self, model, queries, corpus, rel_queries, rel_corpus, negatives_weighter, batch_size=32, n_positives=2, temperature=1, shuffle=True, n_negatives=0, neg_rel_queries=None, top_k_sampling=False):
+        self.top_k_sampling = top_k_sampling
         self.rel_corpus = rel_corpus
         self.negatives_weighter = negatives_weighter
         self.model = model
@@ -43,7 +44,11 @@ class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
                         break
 
                     d_mask = ~self.neg_rel_queries.index.isin(available_docs)
-                    n_ids.extend(self.neg_rel_queries[d_mask].sample(sample_size, weights=self.negatives_weighter(q_id)[d_mask]).keys())
+                    if self.top_k_sampling:
+                        x = self.negatives_weighter(q_id)[d_mask]
+                        n_ids.extend(self.neg_rel_queries[d_mask].iloc[x.argsort()[-sample_size:]].keys())
+                    else:
+                        n_ids.extend(self.neg_rel_queries[d_mask].sample(sample_size, weights=self.negatives_weighter(q_id)[d_mask]).keys())
                     available_docs.update(n_ids)
 
                 labels.extend(n_ids)
@@ -58,7 +63,7 @@ class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
         return d_ids.map(get_positives_sample).items()
 
 
-class QueryExclusiveRankingSimilarityDataset(InvertedRoundRobinRankingSimilarityDataset):
+class TemplateOrienteRankingSimilarityDataset(InvertedRoundRobinRankingSimilarityDataset):
     def __init__(self, *kargs, **kwargs):
         super().__init__(*kargs, **kwargs)
         self.counts = self.rel_queries.map(len)
