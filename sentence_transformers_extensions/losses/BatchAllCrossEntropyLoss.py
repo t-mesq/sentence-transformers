@@ -81,7 +81,6 @@ class RankingBatchAllCrossEntropyLoss(BatchAllCrossEntropyLoss):
         """
         super(RankingBatchAllCrossEntropyLoss, self).__init__(model=model, similarity_fct=similarity_fct, scale=scale, loss_fct=loss_fct, diagonal=diagonal)
 
-
     def forward(self, sentence_features: Iterable[Dict[str, Tensor]], labels: Tensor):
         reps = [self.model(sentence_feature)['sentence_embedding'] for sentence_feature in sentence_features]
         embeddings = torch.cat(reps)
@@ -107,7 +106,6 @@ class RankingBatchSplitCrossEntropyLoss(RankingBatchAllCrossEntropyLoss):
         :param loss_fct: Loss function to be applied, must take a 2d tensor for the scores, and a 1d tensor for the labels, corresponding to the index of the positive
         """
         super(RankingBatchSplitCrossEntropyLoss, self).__init__(model=model, similarity_fct=similarity_fct, scale=scale, loss_fct=loss_fct, diagonal=diagonal)
-
 
     def forward(self, sentence_features: Iterable[Dict[str, Tensor]], labels: Tensor):
         query_reps = []
@@ -141,7 +139,8 @@ class RankingBatchSplitCrossEntropyLoss(RankingBatchAllCrossEntropyLoss):
 
 class RankingBatchQueriesCrossEntropyLoss(RankingBatchSplitCrossEntropyLoss):
     def get_embeddings_combination(self, query_labels, query_embeddings, document_labels, document_embeddings):
-        retu
+        return query_labels, query_embeddings, torch.cat((query_labels, document_labels)), torch.cat((query_embeddings, document_embeddings))
+
 
 class RankingBatchDocumentsCrossEntropyLoss(RankingBatchSplitCrossEntropyLoss):
     def get_embeddings_combination(self, query_labels, query_embeddings, document_labels, document_embeddings):
