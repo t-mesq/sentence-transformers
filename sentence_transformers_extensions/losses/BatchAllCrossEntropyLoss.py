@@ -92,7 +92,7 @@ class RankingBatchAllCrossEntropyLoss(BatchAllCrossEntropyLoss):
         return self.loss_fct(scores, labels)
 
 
-class RankingBatchQueriesCrossEntropyLoss(RankingBatchAllCrossEntropyLoss):
+class RankingBatchSplitCrossEntropyLoss(RankingBatchAllCrossEntropyLoss):
     """
     Same as BatchAllCrossEntropyLoss but adapted for ranking examples
     """
@@ -106,7 +106,7 @@ class RankingBatchQueriesCrossEntropyLoss(RankingBatchAllCrossEntropyLoss):
         :param scale: Output of similarity function is multiplied by scale value
         :param loss_fct: Loss function to be applied, must take a 2d tensor for the scores, and a 1d tensor for the labels, corresponding to the index of the positive
         """
-        super(RankingBatchQueriesCrossEntropyLoss, self).__init__(model=model, similarity_fct=similarity_fct, scale=scale, loss_fct=loss_fct, diagonal=diagonal)
+        super(RankingBatchSplitCrossEntropyLoss, self).__init__(model=model, similarity_fct=similarity_fct, scale=scale, loss_fct=loss_fct, diagonal=diagonal)
 
 
     def forward(self, sentence_features: Iterable[Dict[str, Tensor]], labels: Tensor):
@@ -131,6 +131,18 @@ class RankingBatchQueriesCrossEntropyLoss(RankingBatchAllCrossEntropyLoss):
         query_labels = torch.cat(query_labels)
         document_labels = torch.cat(document_labels)
 
-        scores, labels = self.get_all_possible_scores(query_labels, query_embeddings, document_labels, document_embeddings)
+        scores, labels = self.get_all_possible_scores(*self.get_embeddings_combination(query_labels, query_embeddings, document_labels, document_embeddings))
 
         return self.loss_fct(scores, labels)
+
+    def get_embeddings_combination(self, query_labels, query_embeddings, document_labels, document_embeddings):
+        raise NotImplementedError
+
+
+class RankingBatchQueriesCrossEntropyLoss(RankingBatchSplitCrossEntropyLoss):
+    def get_embeddings_combination(self, query_labels, query_embeddings, document_labels, document_embeddings):
+        retu
+
+class RankingBatchDocumentsCrossEntropyLoss(RankingBatchSplitCrossEntropyLoss):
+    def get_embeddings_combination(self, query_labels, query_embeddings, document_labels, document_embeddings):
+        return torch.cat((query_labels, document_labels)), torch.cat((query_embeddings, document_embeddings)), document_labels, document_embeddings

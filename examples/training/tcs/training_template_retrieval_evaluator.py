@@ -45,7 +45,7 @@ BATCH_SIZE = 8
 positives = 2
 shuffle_batches = 'ir-labeled'
 in_batch_negatives = True
-loss_name = 'rbqce-ltr'
+loss_name = 'rbqce'
 EPOCHS = 50
 
 queries_splits_df = pd.Series({split: pd.read_json(f"{DATASET_PATH}{split}/{FILE_NAME}") for split in SPLITS})
