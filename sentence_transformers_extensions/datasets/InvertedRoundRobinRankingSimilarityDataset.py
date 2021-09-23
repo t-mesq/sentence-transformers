@@ -12,14 +12,15 @@ from sklearn.preprocessing import normalize
 
 
 class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
-    def __init__(self, model, queries, corpus, rel_queries, rel_corpus, negatives_weighter, batch_size=32, n_positives=2, temperature=1, shuffle=True, n_negatives=0, neg_rel_queries=None, top_k_sampling=False):
+    def __init__(self, model, queries, corpus, rel_queries, rel_corpus, negatives_weighter, batch_size=32, n_positives=2, temperature=1, shuffle=True, n_negatives=0, neg_rel_queries=None, top_k_sampling=False, replace=False):
+        self.replace = replace
         self.top_k_sampling = top_k_sampling
         self.rel_corpus = rel_corpus
         self.negatives_weighter = negatives_weighter
         self.model = model
         self.queries = queries
         self.corpus = corpus
-        self.rel_queries = pickle.loads(pickle.dumps(rel_queries))  # dirty copy
+        self.rel_queries = pd.Series(pickle.loads(pickle.dumps(rel_queries)))  # dirty copy
         self.neg_rel_queries = self.rel_queries if neg_rel_queries is None else pd.Series(neg_rel_queries)
         self.batch_size = batch_size
         self.n_positives = n_positives
@@ -32,7 +33,7 @@ class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
     def __iter__(self):
         self.negatives_weighter.setup(self.model, queries=self.queries.to_dict(), corpus=self.corpus.to_dict(), rel_queries=self.neg_rel_queries.to_dict())
         for batch_num in range(math.ceil(self.__len__() / self.batch_size)):
-            sampled_ids = self.rel_queries.sample(self.batch_size, weights=self.weights)
+            sampled_ids = self.rel_queries.sample(self.batch_size, weights=self.weights, replace=self.replace)
             available_docs = set(sampled_ids.keys())
             for d_id, q_ids in self.positives_sample_generator(sampled_ids, available_docs):
                 labels = [d_id, *map(lambda x: self.rel_corpus.get(x)[0], q_ids)]     # n_positives queries + positive document
