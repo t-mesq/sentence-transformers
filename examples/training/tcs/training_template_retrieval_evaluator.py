@@ -21,7 +21,7 @@ from sentence_transformers_extensions.evaluation import DocumentRetrievalEvaluat
 from sentence_transformers_extensions.losses import MultiplePositivesAndNegativesRankingLoss, agg_in_batch_negatives, agg_anchors_in_batch_negatives, \
     agg_unique, agg_all  # , NormalizedDiscountedCumulativeGainLoss, NLLAndNDCGLoss, NLLAndMAPLoss, MeanAveragePrecisionLoss
 from sentence_transformers_extensions.losses import TransposedMultiplePositivesAndNegativesRankingLoss, BiMultiplePositivesAndNegativesRankingLoss, BatchAllCrossEntropyLoss, RankingBatchAllCrossEntropyLoss,\
-    RankingBatchQueriesCrossEntropyLoss, LTRCrossEntropyLoss
+    RankingBatchQueriesCrossEntropyLoss, LTRCrossEntropyLoss, TopkCrossEntropyLoss
 
 tqdm.pandas()
 
@@ -43,9 +43,9 @@ temperature = 1
 negatives = 2
 BATCH_SIZE = 8
 positives = 2
-shuffle_batches = 'ir-labeled'
+shuffle_batches = 'inv-smart'
 in_batch_negatives = True
-loss_name = 'rbqce'
+loss_name = 'nll-top4'
 EPOCHS = 50
 
 queries_splits_df = pd.Series({split: pd.read_json(f"{DATASET_PATH}{split}/{FILE_NAME}") for split in SPLITS})
@@ -81,6 +81,11 @@ def get_labeled_ir(train_df, model=None):
                                             n_positives=positives, shuffle=shuffle_batches,
                                             temperature=temperature, n_negatives=negatives, negatives_weighter=weighters[hard_negatives_pooling])
 
+def get_inv_smart(train_df, model=None):
+    return InvertedRoundRobinRankingDataset(model=model, queries=queries.train, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_docs.train, batch_size=BATCH_SIZE,
+                                            n_positives=positives, shuffle=shuffle_batches,
+                                            temperature=temperature, n_negatives=negatives, negatives_weighter=weighters[hard_negatives_pooling])
+
 def get_ir_smart_pairs(train_df, model=None):
     return InformationRetrievalTemperatureDataset(model=model, queries=queries.train, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_docs.train,
                                                   negatives_weighter=weighters[hard_negatives_pooling], temperature=temperature, batch_size=BATCH_SIZE, shuffle=shuffle_batches, n_negatives=negatives)
@@ -112,6 +117,8 @@ def get_train_examples(in_batch_neg, hard_neg_pool, shuffle):
         return get_ir_smart_pairs
     if shuffle == 'ir-labeled':
         return get_labeled_ir
+    if shuffle == 'inv-smart':
+        return get_inv_smart
     if shuffle == 'ir-queries':
         return get_ir_queries_pairs
     if shuffle == 'queries-pos':
@@ -143,6 +150,7 @@ trainning_examples = get_train_examples(in_batch_neg=in_batch_negatives, hard_ne
 train_dataloader = DataLoader(trainning_examples, shuffle=(shuffle_batches is True), batch_size=BATCH_SIZE)
 # train_dataloader = DataLoader(train_dataset, batch_size=32)
 train_losses = {'nll': lambda *args, **kwargs: MultiplePositivesAndNegativesRankingLoss(*args, **kwargs, positives=positives, scale=scale),
+                'nll-top4': lambda *args, **kwargs: MultiplePositivesAndNegativesRankingLoss(*args, **kwargs, positives=positives, scale=scale, cross_entropy_loss=TopkCrossEntropyLoss(k=4)),
                 # 'pair-nll': lambda *args, **kwargs: MultiplePositivesAndNegativesRankingLoss(*args, **kwargs, positives=positives, scale=scale, cross_entropy_loss=PairwiseNLLLoss()),
                 't-nll': lambda *args, **kwargs: TransposedMultiplePositivesAndNegativesRankingLoss(*args, **kwargs, positives=positives, scale=scale),
                 'bi-nll': lambda *args, **kwargs: BiMultiplePositivesAndNegativesRankingLoss(*args, **kwargs, positives=positives, scale=scale),
@@ -155,7 +163,7 @@ train_losses = {'nll': lambda *args, **kwargs: MultiplePositivesAndNegativesRank
                 # 'nll+ndcg': lambda *args, **kwargs: NLLAndNDCGLoss(*args, **kwargs, positives=positives, regularization_strength=REGULARIZATION_STRENGTH),
                 # 'nll+map': lambda *args, **kwargs: NLLAndMAPLoss(*args, **kwargs, positives=positives, regularization_strength=REGULARIZATION_STRENGTH)
                 }
-agg = agg_anchors_in_batch_negatives if in_batch_negatives else agg_unique
+agg = agg_in_batch_negatives if in_batch_negatives else agg_unique
 train_loss = train_losses[loss_name](model=model, agg_fct=agg)
 # stacked_evaluator(model, '', 1, 0)
 model.fit(train_objectives=[(train_dataloader, train_loss)],

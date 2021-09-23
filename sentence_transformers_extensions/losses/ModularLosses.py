@@ -1,6 +1,6 @@
 import torch
 from torch import nn, Tensor
-from typing import Iterable, Dict, Callable, Union, List, Tuple
+from typing import Iterable, Dict, Callable, Union, List, Tuple, Optional
 from sentence_transformers.SentenceTransformer import SentenceTransformer
 from sentence_transformers import util
 
@@ -139,4 +139,20 @@ class LTRCrossEntropyLoss(nn.CrossEntropyLoss):
         target_scores = input[range(len(input)), target]
         filtered_input = torch.where(input < target_scores.unsqueeze(1), torch.tensor(float('-inf'), dtype=input.dtype, device=input.device), input)
         return super().forward(filtered_input, target)
+
+
+class TopkCrossEntropyLoss(nn.CrossEntropyLoss):
+    def __init__(self, weight: Optional[Tensor] = None, size_average=None, ignore_index: int = -100,
+                 reduce=None, reduction: str = 'mean', k: int = 4) -> None:
+        super(TopkCrossEntropyLoss, self).__init__(weight, size_average, ignore_index, reduce, reduction)
+        self.k = k
+
+    def forward(self, input: Tensor, target: Tensor) -> Tensor:
+        target_scores = input[range(len(input)), target]
+        negatives_mask = torch.ones_like(input, dtype=bool)
+        negatives_mask[range(len(input)), target] = False
+        negative_scores = input[negatives_mask].view(len(input), -1)
+        topk_negatives = torch.topk(negative_scores, k=self.k, largest=True).values
+        topk_scores = torch.cat((target_scores.unsqueeze(1), topk_negatives), dim=1)
+        return super().forward(topk_scores, torch.zeros_like(target))
 
