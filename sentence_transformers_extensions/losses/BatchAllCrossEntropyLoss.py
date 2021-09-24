@@ -145,6 +145,11 @@ class RankingBatchDocumentsCrossEntropyLoss(RankingBatchSplitCrossEntropyLoss):
         scores, labels = self.get_all_possible_scores(torch.cat((query_labels, document_labels)), torch.cat((query_embeddings, document_embeddings)), document_labels, document_embeddings)
         return self.loss_fct(scores, labels)
 
+class RankingBatchSingleCrossEntropyLoss(RankingBatchSplitCrossEntropyLoss):
+    def get_embeddings_combination(self, query_labels, query_embeddings, document_labels, document_embeddings):
+        scores, labels = self.get_all_possible_scores(query_labels, query_embeddings, document_labels, document_embeddings)
+        return self.loss_fct(scores, labels)
+
 class RankingBatchTripleCrossEntropyLoss(RankingBatchSplitCrossEntropyLoss):
     def __init__(self, model: SentenceTransformer, similarity_fct: Callable = util.cos_sim, scale: float = 20.0, loss_fct: Callable = nn.CrossEntropyLoss(), diagonal: bool = True, alpha: float = 0.5):
         super(RankingBatchTripleCrossEntropyLoss, self).__init__(model=model, similarity_fct=similarity_fct, scale=scale, loss_fct=loss_fct, diagonal=diagonal)
