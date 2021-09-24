@@ -156,3 +156,21 @@ class TopkCrossEntropyLoss(nn.CrossEntropyLoss):
         topk_scores = torch.cat((target_scores.unsqueeze(1), topk_negatives), dim=1)
         return super().forward(topk_scores, torch.zeros_like(target))
 
+
+
+class RandkCrossEntropyLoss(nn.CrossEntropyLoss):
+    def __init__(self, weight: Optional[Tensor] = None, size_average=None, ignore_index: int = -100,
+                 reduce=None, reduction: str = 'mean', k: int = 4) -> None:
+        super(RandkCrossEntropyLoss, self).__init__(weight, size_average, ignore_index, reduce, reduction)
+        self.k = k
+
+    def forward(self, input: Tensor, target: Tensor) -> Tensor:
+        target_scores = input[range(len(input)), target]
+        negatives_mask = torch.ones_like(input, dtype=bool)
+        negatives_mask[range(len(input)), target] = False
+        negative_scores = input[negatives_mask].view(len(input), -1)
+        randk_idx = torch.stack([torch.randperm(negative_scores.shape[1])[:self.k] for _ in negative_scores])
+        randk_negatives = torch.gather(negative_scores, 1, randk_idx)
+        randk_scores = torch.cat((target_scores.unsqueeze(1), randk_negatives), dim=1)
+        return super().forward(randk_scores, torch.zeros_like(target))
+

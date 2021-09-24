@@ -21,7 +21,7 @@ from sentence_transformers_extensions.evaluation import DocumentRetrievalEvaluat
 from sentence_transformers_extensions.losses import MultiplePositivesAndNegativesRankingLoss, agg_in_batch_negatives, agg_anchors_in_batch_negatives, \
     agg_unique, agg_all  # , NormalizedDiscountedCumulativeGainLoss, NLLAndNDCGLoss, NLLAndMAPLoss, MeanAveragePrecisionLoss
 from sentence_transformers_extensions.losses import TransposedMultiplePositivesAndNegativesRankingLoss, BiMultiplePositivesAndNegativesRankingLoss, BatchAllCrossEntropyLoss, RankingBatchAllCrossEntropyLoss,\
-    RankingBatchQueriesCrossEntropyLoss, LTRCrossEntropyLoss, TopkCrossEntropyLoss
+    RankingBatchQueriesCrossEntropyLoss, LTRCrossEntropyLoss, TopkCrossEntropyLoss, RandkCrossEntropyLoss
 
 tqdm.pandas()
 
@@ -41,11 +41,11 @@ SPLITS = 'train', 'val', 'test'
 hard_negatives_pooling = 'none'
 temperature = 1
 negatives = 2
-BATCH_SIZE = 8
+BATCH_SIZE = 64
 positives = 2
-shuffle_batches = 'inv-smart'
+shuffle_batches = 'ir-labeled'
 in_batch_negatives = True
-loss_name = 'nll-top4'
+loss_name = 'nll-rand4'
 EPOCHS = 50
 
 queries_splits_df = pd.Series({split: pd.read_json(f"{DATASET_PATH}{split}/{FILE_NAME}") for split in SPLITS})
@@ -151,6 +151,7 @@ train_dataloader = DataLoader(trainning_examples, shuffle=(shuffle_batches is Tr
 # train_dataloader = DataLoader(train_dataset, batch_size=32)
 train_losses = {'nll': lambda *args, **kwargs: MultiplePositivesAndNegativesRankingLoss(*args, **kwargs, positives=positives, scale=scale),
                 'nll-top4': lambda *args, **kwargs: MultiplePositivesAndNegativesRankingLoss(*args, **kwargs, positives=positives, scale=scale, cross_entropy_loss=TopkCrossEntropyLoss(k=4)),
+                'nll-rand4': lambda *args, **kwargs: MultiplePositivesAndNegativesRankingLoss(*args, **kwargs, positives=positives, scale=scale, cross_entropy_loss=RandkCrossEntropyLoss(k=4)),
                 # 'pair-nll': lambda *args, **kwargs: MultiplePositivesAndNegativesRankingLoss(*args, **kwargs, positives=positives, scale=scale, cross_entropy_loss=PairwiseNLLLoss()),
                 't-nll': lambda *args, **kwargs: TransposedMultiplePositivesAndNegativesRankingLoss(*args, **kwargs, positives=positives, scale=scale),
                 'bi-nll': lambda *args, **kwargs: BiMultiplePositivesAndNegativesRankingLoss(*args, **kwargs, positives=positives, scale=scale),

@@ -12,7 +12,7 @@ from sklearn.preprocessing import normalize
 
 
 class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
-    def __init__(self, model, queries, corpus, rel_queries, rel_corpus, negatives_weighter, batch_size=32, n_positives=2, temperature=1, shuffle=True, n_negatives=0, neg_rel_queries=None, top_k_sampling=False, replace=False):
+    def __init__(self, model, queries, corpus, rel_queries, rel_corpus, negatives_weighter, batch_size=32, n_positives=2, temperature=1, shuffle=True, n_negatives=0, neg_rel_queries=None, top_k_sampling=False, replace=True):
         self.replace = replace
         self.top_k_sampling = top_k_sampling
         self.rel_corpus = rel_corpus
@@ -59,10 +59,18 @@ class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
         return len(self.queries) // self.n_positives
 
     def positives_sample_generator(self, d_ids, available_docs):
-        def get_positives_sample(positives):
-            return [*np.random.choice(positives, self.n_positives, replace=True)]
-        return d_ids.map(get_positives_sample).items()
-
+        # def get_positives_sample(positives):
+        #     return [*np.random.choice(positives, self.n_positives, replace=True)]
+        # return d_ids.map(get_positives_sample).items()
+        u_ids = dict(zip(*np.unique(d_ids.keys(), return_counts=True)))
+        extended_mask = ~self.rel_queries.index.isin(u_ids)
+        extended_ids = self.neg_rel_queries[extended_mask].sample(len(d_ids) - len(u_ids), weights=self.weights[extended_mask]).keys()
+        u_ids.update(dict(zip(extended_ids, [0]*len(extended_ids))))
+        q_ids = []
+        for d_id in u_ids:
+            q_ids.extend(np.random.choice(self.rel_queries.loc[d_id], self.n_positives*u_ids[d_id], replace=True))
+        grouped_q_ids = np.array(q_ids).reshape((-1, self.n_positives))
+        return dict(zip(u_ids, grouped_q_ids)).items()
 
 class TemplateOrienteRankingSimilarityDataset(InvertedRoundRobinRankingSimilarityDataset):
     def __init__(self, *kargs, **kwargs):
