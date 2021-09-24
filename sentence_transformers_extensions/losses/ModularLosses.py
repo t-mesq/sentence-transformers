@@ -169,7 +169,7 @@ class RandkCrossEntropyLoss(nn.CrossEntropyLoss):
         negatives_mask = torch.ones_like(input, dtype=bool)
         negatives_mask[range(len(input)), target] = False
         negative_scores = input[negatives_mask].view(len(input), -1)
-        randk_idx = torch.stack([torch.randperm(negative_scores.shape[1])[:self.k] for _ in negative_scores])
+        randk_idx = torch.stack([torch.randperm(negative_scores.shape[1], device=input.device)[:self.k] for _ in negative_scores])
         randk_negatives = torch.gather(negative_scores, 1, randk_idx)
         randk_scores = torch.cat((target_scores.unsqueeze(1), randk_negatives), dim=1)
         return super().forward(randk_scores, torch.zeros_like(target))
