@@ -75,11 +75,11 @@ class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
 
     @staticmethod
     def retrieve_and_roll(x, n):
-        return np.random.choice(x, n, replace=True)
+        return [pop_and_append(x) for _ in range(n)]
 
     @staticmethod
     def retrieve_random(x, n):
-        return [pop_and_append(x) for _ in range(n)]
+        return np.random.choice(x, n, replace=True)
 
 
 class TemplateOrienteRankingSimilarityDataset(InvertedRoundRobinRankingSimilarityDataset):
