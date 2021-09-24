@@ -36,7 +36,7 @@ class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
             sampled_ids = self.rel_queries.sample(self.batch_size, weights=self.weights, replace=self.replace)
             available_docs = set(sampled_ids.keys())
             for d_id, q_ids in self.positives_sample_generator(sampled_ids, available_docs):
-                labels = [d_id, *map(lambda x: self.rel_corpus.get(x)[0], q_ids)]     # n_positives queries + positive document
+                labels = [*map(lambda x: self.rel_corpus.get(x)[0], q_ids), d_id]     # n_positives queries + positive document
                 available_docs.add(d_id)
 
                 n_ids = []
@@ -64,7 +64,7 @@ class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
         # return d_ids.map(get_positives_sample).items()
         u_ids = dict(zip(*np.unique(d_ids.keys(), return_counts=True)))
         extended_mask = ~self.rel_queries.index.isin(u_ids)
-        extended_ids = self.neg_rel_queries[extended_mask].sample(len(d_ids) - len(u_ids), weights=self.weights[extended_mask]).keys()
+        extended_ids = self.neg_rel_queries[extended_mask].sample(len(d_ids) - len(u_ids)).keys()
         u_ids.update(dict(zip(extended_ids, [0]*len(extended_ids))))
         q_ids = []
         for d_id in u_ids:
