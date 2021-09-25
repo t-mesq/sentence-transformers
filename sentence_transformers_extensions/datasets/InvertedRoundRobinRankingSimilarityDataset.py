@@ -79,7 +79,7 @@ class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
         return np.random.choice(x, n, replace=True)
 
 
-class gi(InvertedRoundRobinRankingSimilarityDataset):
+class InvertedRoundRobinBalancedRankingSimilarityDataset(InvertedRoundRobinRankingSimilarityDataset):
     def __init__(self, model, queries, corpus, rel_queries, rel_corpus, negatives_weighter, batch_size=32, n_positives=1, temperature=1, shuffle=True, n_negatives=0, neg_rel_queries=None, top_k_sampling=False, random_p_sampling=True):
         super().__init__(model=model, queries=queries, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_corpus, negatives_weighter=negatives_weighter, batch_size=batch_size, n_positives=n_positives, temperature=temperature, shuffle=shuffle, n_negatives=n_negatives, neg_rel_queries=neg_rel_queries, top_k_sampling=top_k_sampling, random_p_sampling=random_p_sampling, replace=False)
         self.query_weigths = self.weights
