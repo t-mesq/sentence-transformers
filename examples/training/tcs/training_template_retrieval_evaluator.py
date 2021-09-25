@@ -41,7 +41,7 @@ SPLITS = 'train', 'val', 'test'
 hard_negatives_pooling = 'none'
 temperature = 1
 negatives = 2
-BATCH_SIZE = 64
+BATCH_SIZE = 4
 positives = 2
 shuffle_batches = 'ir-labeled'
 in_batch_negatives = True
@@ -77,7 +77,7 @@ def get_smart_pairs(train_df, model=None):
                                             temperature=temperature, n_negatives=negatives, negatives_weighter=weighters[hard_negatives_pooling], template_weight=1)
 
 def get_labeled_ir(train_df, model=None):
-    return InvertedRoundRobinRankingSimilarityDataset(model=model, queries=queries.train, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_docs.train, batch_size=BATCH_SIZE,
+    return InvertedRoundRobinBalancedRankingSimilarityDataset(model=model, queries=queries.train, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_docs.train, batch_size=BATCH_SIZE,
                                             n_positives=positives, shuffle=shuffle_batches,
                                             temperature=temperature, n_negatives=negatives, negatives_weighter=weighters[hard_negatives_pooling])
 

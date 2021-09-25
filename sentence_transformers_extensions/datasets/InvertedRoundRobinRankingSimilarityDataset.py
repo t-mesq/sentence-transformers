@@ -60,9 +60,6 @@ class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
         return len(self.queries) // self.n_positives
 
     def positives_sample_generator(self, d_ids, available_docs):
-        # def get_positives_sample(positives):
-        #     return [*np.random.choice(positives, self.n_positives, replace=True)]
-        # return d_ids.map(get_positives_sample).items()
         u_ids = dict(zip(*np.unique(d_ids.keys(), return_counts=True)))
         extended_mask = ~self.rel_queries.index.isin(u_ids)
         extended_ids = self.neg_rel_queries[extended_mask].sample(len(d_ids) - len(u_ids)).keys()
@@ -82,12 +79,18 @@ class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
         return np.random.choice(x, n, replace=True)
 
 
-class TemplateOrienteRankingSimilarityDataset(InvertedRoundRobinRankingSimilarityDataset):
-    def __init__(self, *kargs, **kwargs):
-        super().__init__(*kargs, **kwargs)
+class gi(InvertedRoundRobinRankingSimilarityDataset):
+    def __init__(self, model, queries, corpus, rel_queries, rel_corpus, negatives_weighter, batch_size=32, n_positives=1, temperature=1, shuffle=True, n_negatives=0, neg_rel_queries=None, top_k_sampling=False, random_p_sampling=True):
+        super().__init__(model=model, queries=queries, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_corpus, negatives_weighter=negatives_weighter, batch_size=batch_size, n_positives=n_positives, temperature=temperature, shuffle=shuffle, n_negatives=n_negatives, neg_rel_queries=neg_rel_queries, top_k_sampling=top_k_sampling, random_p_sampling=random_p_sampling, replace=False)
+        self.query_weigths = self.weights
+        self.weights = np.ones_like(self.rel_queries)
         self.counts = self.rel_queries.map(len)
-        raise NotImplementedError
 
-    def positives_sample_generator(self, d_ids: pd.Series, available_docs: set):
-        used_q_ids = d_ids.map(len).clip(upper=self.positives)
-        # for d_id in d_ids.keys():
+    def positives_sample_generator(self, d_ids, available_docs):
+        mask = self.rel_queries.index.isin(d_ids.keys())
+        query_counts = pd.Series(dict(zip(*np.unique(self.rel_queries[mask].sample(self.n_positives * len(d_ids), weights=self.query_weigths[mask], replace=True).keys(), return_counts=True))))
+        q_ids = []
+        for d_id, n in query_counts.items():
+            q_ids.extend(self.random_p_sampling(self.rel_queries.loc[d_id], n))
+        grouped_q_ids = np.array(q_ids).reshape((-1, self.n_positives))
+        return dict(zip(query_counts.keys(), grouped_q_ids)).items()
