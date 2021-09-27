@@ -94,3 +94,28 @@ class InvertedRoundRobinBalancedRankingSimilarityDataset(InvertedRoundRobinRanki
             q_ids.extend(self.random_p_sampling(self.rel_queries.loc[d_id], n))
         grouped_q_ids = np.array(q_ids).reshape((-1, self.n_positives))
         return dict(zip(d_ids.keys(), grouped_q_ids)).items()
+
+
+class ExpandedInvertedRoundRobinBalancedRankingSimilarityDataset(InvertedRoundRobinBalancedRankingSimilarityDataset):
+    def __init__(self, model, queries, corpus, rel_queries, rel_corpus, negatives_weighter, batch_size=32, n_positives=1, temperature=1, shuffle=True, n_negatives=0, neg_rel_queries=None, top_k_sampling=False, random_p_sampling=True, expanded_prob=0.1):
+        super().__init__(model=model, queries=queries, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_corpus, negatives_weighter=negatives_weighter, batch_size=batch_size, n_positives=n_positives, temperature=temperature, shuffle=shuffle, n_negatives=n_negatives, neg_rel_queries=neg_rel_queries, top_k_sampling=top_k_sampling, random_p_sampling=random_p_sampling)
+        self.expanded_prob = expanded_prob
+        self.neg_queries = self.rel_queries[~self.rel_queries.index.isin(self.neg_rel_queries.index)]
+        self.expansion_size = int(self.batch_size * expanded_prob)
+        self.expansion_size_p = self.batch_size * expanded_prob - self.expansion_size
+        self.neg_rel_weights = self.neg_rel_queries.map(len).agg(lambda x: normalize(np.array([x]) ** self.temperature_power, norm='l1')[0])
+
+    def positives_sample_generator(self, d_ids, available_docs):
+        current_expansion_size = self.expansion_size + (np.random.rand() < self.expansion_size_p)
+        d_ids = self.neg_rel_queries.sample(self.batch_size - current_expansion_size)
+        available_docs.clear()
+        available_docs.update(set(d_ids.keys()))
+        mask = self.neg_rel_queries.index.isin(d_ids.keys())
+        query_counts = pd.Series(dict(zip(*np.unique(self.neg_rel_queries[mask].sample(self.n_positives * self.batch_size - current_expansion_size, weights=self.neg_rel_weights[mask], replace=True).keys(), return_counts=True))))
+        expanded_ids = self.neg_queries.sample(current_expansion_size).map(lambda x: 1)
+        query_counts = query_counts.append(expanded_ids)
+        q_ids = []
+        for d_id, n in query_counts.items():
+            q_ids.extend(self.random_p_sampling(self.rel_queries.loc[d_id], n))
+        grouped_q_ids = np.array(q_ids).reshape((-1, self.n_positives))
+        return dict(zip([*d_ids.keys(), *expanded_ids.keys()], grouped_q_ids)).items()

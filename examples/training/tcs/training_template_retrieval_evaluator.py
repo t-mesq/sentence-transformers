@@ -41,7 +41,7 @@ SPLITS = 'train', 'val', 'test'
 hard_negatives_pooling = 'none'
 temperature = 1
 negatives = 2
-BATCH_SIZE = 8
+BATCH_SIZE = 20
 positives = 1
 shuffle_batches = 'ir-labeled'
 in_batch_negatives = True
@@ -54,6 +54,7 @@ queries = queries_splits_df.map(lambda df: df.set_index('id').query_text)  # dic
 corpus = templates_df.set_index('id').query_text  # dict in the format: passage_id -> passage. Stores all existent passages
 rel_docs = queries_splits_df.map(lambda df: df.set_index('id').macro_id.map(lambda x: [x]))  # dicts in the format: query_id -> set(macro_ids). Stores all training queries
 rel_queries = queries_splits_df.train.groupby('macro_id').id.agg(list)
+neg_rel_queries = rel_queries.head(200)
 scale = 16
 
 weighters = {
@@ -77,9 +78,9 @@ def get_smart_pairs(train_df, model=None):
                                             temperature=temperature, n_negatives=negatives, negatives_weighter=weighters[hard_negatives_pooling], template_weight=1)
 
 def get_labeled_ir(train_df, model=None):
-    return InvertedRoundRobinBalancedRankingSimilarityDataset(model=model, queries=queries.train, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_docs.train, batch_size=BATCH_SIZE,
+    return ExpandedInvertedRoundRobinBalancedRankingSimilarityDataset(model=model, queries=queries.train, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_docs.train, batch_size=BATCH_SIZE,
                                             n_positives=positives, shuffle=shuffle_batches,
-                                            temperature=temperature, n_negatives=negatives, negatives_weighter=weighters[hard_negatives_pooling])
+                                            temperature=temperature, n_negatives=negatives, negatives_weighter=weighters[hard_negatives_pooling], neg_rel_queries=neg_rel_queries)
 
 def get_inv_smart(train_df, model=None):
     return InvertedRoundRobinRankingDataset(model=model, queries=queries.train, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_docs.train, batch_size=BATCH_SIZE,
