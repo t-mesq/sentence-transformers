@@ -191,7 +191,7 @@ class RankingBatchDoubleQueryCrossEntropyLoss(RankingBatchSplitCrossEntropyLoss)
 
 class RankingBatchDoubleDocumentCrossEntropyLoss(RankingBatchSplitCrossEntropyLoss):
     def __init__(self, model: SentenceTransformer, similarity_fct: Callable = util.cos_sim, scale: float = 20.0, loss_fct: Callable = nn.CrossEntropyLoss(), diagonal: bool = True, alpha: float = 0.5):
-        super(RankingBatchDoubleDocumentEntropyLoss, self).__init__(model=model, similarity_fct=similarity_fct, scale=scale, loss_fct=loss_fct, diagonal=diagonal)
+        super(RankingBatchDoubleDocumentCrossEntropyLoss, self).__init__(model=model, similarity_fct=similarity_fct, scale=scale, loss_fct=loss_fct, diagonal=diagonal)
         self.alpha = alpha
 
     def get_embeddings_combination(self, query_labels, query_embeddings, document_labels, document_embeddings):
