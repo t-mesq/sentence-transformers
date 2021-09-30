@@ -172,3 +172,23 @@ class RankingBatchQuadrupleCrossEntropyLoss(RankingBatchSplitCrossEntropyLoss):
         queries_loss = self.loss_fct(*self.get_all_possible_scores(query_labels, query_embeddings))
         documents_loss = self.loss_fct(*self.get_all_possible_scores(document_labels, document_embeddings))
         return self.alpha*(0.5*ranking_loss + 0.5*inverted_ranking_loss) + (1 - self.alpha) * (0.5*queries_loss + 0.5*documents_loss)
+
+class RankingBatchDoubleQueryCrossEntropyLoss(RankingBatchSplitCrossEntropyLoss):
+    def __init__(self, model: SentenceTransformer, similarity_fct: Callable = util.cos_sim, scale: float = 20.0, loss_fct: Callable = nn.CrossEntropyLoss(), diagonal: bool = True, alpha: float = 0.5):
+        super(RankingBatchDoubleQueryCrossEntropyLoss, self).__init__(model=model, similarity_fct=similarity_fct, scale=scale, loss_fct=loss_fct, diagonal=diagonal)
+        self.alpha = alpha
+
+    def get_embeddings_combination(self, query_labels, query_embeddings, document_labels, document_embeddings):
+        ranking_loss = self.loss_fct(*self.get_all_possible_scores(query_labels, query_embeddings, document_labels, document_embeddings))
+        queries_loss = self.loss_fct(*self.get_all_possible_scores(query_labels, query_embeddings))
+        return self.alpha * ranking_loss + (1 - self.alpha) * queries_loss
+
+class RankingBatchDoubleDocumentEntropyLoss(RankingBatchSplitCrossEntropyLoss):
+    def __init__(self, model: SentenceTransformer, similarity_fct: Callable = util.cos_sim, scale: float = 20.0, loss_fct: Callable = nn.CrossEntropyLoss(), diagonal: bool = True, alpha: float = 0.5):
+        super(RankingBatchDoubleDocumentEntropyLoss, self).__init__(model=model, similarity_fct=similarity_fct, scale=scale, loss_fct=loss_fct, diagonal=diagonal)
+        self.alpha = alpha
+
+    def get_embeddings_combination(self, query_labels, query_embeddings, document_labels, document_embeddings):
+        ranking_loss = self.loss_fct(*self.get_all_possible_scores(query_labels, query_embeddings, document_labels, document_embeddings))
+        documents_loss = self.loss_fct(*self.get_all_possible_scores(document_labels, document_embeddings))
+        return self.alpha * ranking_loss + (1 - self.alpha) * documents_loss
