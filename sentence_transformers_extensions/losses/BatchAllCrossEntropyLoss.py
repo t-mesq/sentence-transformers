@@ -140,15 +140,18 @@ class RankingBatchQueriesCrossEntropyLoss(RankingBatchSplitCrossEntropyLoss):
         scores, labels = self.get_all_possible_scores(query_labels, query_embeddings, torch.cat((query_labels, document_labels)), torch.cat((query_embeddings, document_embeddings)))
         return self.loss_fct(scores, labels)
 
+
 class RankingBatchDocumentsCrossEntropyLoss(RankingBatchSplitCrossEntropyLoss):
     def get_embeddings_combination(self, query_labels, query_embeddings, document_labels, document_embeddings):
         scores, labels = self.get_all_possible_scores(torch.cat((query_labels, document_labels)), torch.cat((query_embeddings, document_embeddings)), document_labels, document_embeddings)
         return self.loss_fct(scores, labels)
 
+
 class RankingBatchSingleCrossEntropyLoss(RankingBatchSplitCrossEntropyLoss):
     def get_embeddings_combination(self, query_labels, query_embeddings, document_labels, document_embeddings):
         scores, labels = self.get_all_possible_scores(query_labels, query_embeddings, document_labels, document_embeddings)
         return self.loss_fct(scores, labels)
+
 
 class RankingBatchTripleCrossEntropyLoss(RankingBatchSplitCrossEntropyLoss):
     def __init__(self, model: SentenceTransformer, similarity_fct: Callable = util.cos_sim, scale: float = 20.0, loss_fct: Callable = nn.CrossEntropyLoss(), diagonal: bool = True, alpha: float = 0.5):
@@ -159,7 +162,8 @@ class RankingBatchTripleCrossEntropyLoss(RankingBatchSplitCrossEntropyLoss):
         ranking_loss = self.loss_fct(*self.get_all_possible_scores(query_labels, query_embeddings, document_labels, document_embeddings))
         queries_loss = self.loss_fct(*self.get_all_possible_scores(query_labels, query_embeddings))
         documents_loss = self.loss_fct(*self.get_all_possible_scores(document_labels, document_embeddings))
-        return self.alpha*ranking_loss + (1 - self.alpha) * (0.5*queries_loss + 0.5*documents_loss)
+        return self.alpha * ranking_loss + (1 - self.alpha) * (0.5 * queries_loss + 0.5 * documents_loss)
+
 
 class RankingBatchQuadrupleCrossEntropyLoss(RankingBatchSplitCrossEntropyLoss):
     def __init__(self, model: SentenceTransformer, similarity_fct: Callable = util.cos_sim, scale: float = 20.0, loss_fct: Callable = nn.CrossEntropyLoss(), diagonal: bool = True, alpha: float = 0.5):
@@ -171,7 +175,8 @@ class RankingBatchQuadrupleCrossEntropyLoss(RankingBatchSplitCrossEntropyLoss):
         ranking_loss = self.loss_fct(*self.get_all_possible_scores(query_labels, query_embeddings, document_labels, document_embeddings))
         queries_loss = self.loss_fct(*self.get_all_possible_scores(query_labels, query_embeddings))
         documents_loss = self.loss_fct(*self.get_all_possible_scores(document_labels, document_embeddings))
-        return self.alpha*(0.5*ranking_loss + 0.5*inverted_ranking_loss) + (1 - self.alpha) * (0.5*queries_loss + 0.5*documents_loss)
+        return self.alpha * (0.5 * ranking_loss + 0.5 * inverted_ranking_loss) + (1 - self.alpha) * (0.5 * queries_loss + 0.5 * documents_loss)
+
 
 class RankingBatchDoubleQueryCrossEntropyLoss(RankingBatchSplitCrossEntropyLoss):
     def __init__(self, model: SentenceTransformer, similarity_fct: Callable = util.cos_sim, scale: float = 20.0, loss_fct: Callable = nn.CrossEntropyLoss(), diagonal: bool = True, alpha: float = 0.5):
@@ -183,7 +188,8 @@ class RankingBatchDoubleQueryCrossEntropyLoss(RankingBatchSplitCrossEntropyLoss)
         queries_loss = self.loss_fct(*self.get_all_possible_scores(query_labels, query_embeddings))
         return self.alpha * ranking_loss + (1 - self.alpha) * queries_loss
 
-class RankingBatchDoubleDocumentEntropyLoss(RankingBatchSplitCrossEntropyLoss):
+
+class RankingBatchDoubleDocumentCrossEntropyLoss(RankingBatchSplitCrossEntropyLoss):
     def __init__(self, model: SentenceTransformer, similarity_fct: Callable = util.cos_sim, scale: float = 20.0, loss_fct: Callable = nn.CrossEntropyLoss(), diagonal: bool = True, alpha: float = 0.5):
         super(RankingBatchDoubleDocumentEntropyLoss, self).__init__(model=model, similarity_fct=similarity_fct, scale=scale, loss_fct=loss_fct, diagonal=diagonal)
         self.alpha = alpha
