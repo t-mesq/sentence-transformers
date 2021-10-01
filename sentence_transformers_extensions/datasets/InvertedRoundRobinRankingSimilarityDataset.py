@@ -65,7 +65,7 @@ class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
 
     def get_document_text(self, d_id):
         if self.responses is None:
-            return self.self.corpus[d_id]
+            return self.corpus[d_id]
         return self.responses[random.sample(self.rel_queries[d_id], 1)[0]] if random.random() > self.template_weight else self.corpus[d_id]
 
     def positives_sample_generator(self, d_ids, available_docs):
