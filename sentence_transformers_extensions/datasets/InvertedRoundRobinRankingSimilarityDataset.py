@@ -33,7 +33,7 @@ class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
         self.temperature_power = 1 / temperature
         self.weights = self.rel_queries.map(len).agg(lambda x: normalize(np.array([x]) ** self.temperature_power, norm='l1')[0])
         self.negative_sample_sizes = list(map(len, np.array_split(np.ones(self.n_negatives).astype(int), self.n_positives)))
-        self.responses = pd.Series(responses) if responses else None
+        self.responses = None if responses is None else pd.Series(responses)
 
     def __iter__(self):
         self.negatives_weighter.setup(self.model, queries=self.queries.to_dict(), corpus=self.corpus.to_dict(), rel_queries=self.neg_rel_queries.to_dict())
