@@ -3,6 +3,8 @@
 """
 import math
 import pickle
+import random
+
 import pandas as pd
 from torch.utils.data import  IterableDataset
 import numpy as np
@@ -12,7 +14,8 @@ from sklearn.preprocessing import normalize
 
 
 class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
-    def __init__(self, model, queries, corpus, rel_queries, rel_corpus, negatives_weighter, batch_size=32, n_positives=2, temperature=1, shuffle=True, n_negatives=0, neg_rel_queries=None, top_k_sampling=False, replace=True, random_p_sampling=True):
+    def __init__(self, model, queries, corpus, rel_queries, rel_corpus, negatives_weighter, batch_size=32, n_positives=2, temperature=1, shuffle=True, n_negatives=0, neg_rel_queries=None, top_k_sampling=False, replace=True, random_p_sampling=True, responses=None, template_weight=0.15):
+        self.template_weight = template_weight
         self.random_p_sampling = self.retrieve_random if random_p_sampling else self.retrieve_and_roll
         self.replace = replace
         self.top_k_sampling = top_k_sampling
@@ -30,6 +33,7 @@ class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
         self.temperature_power = 1 / temperature
         self.weights = self.rel_queries.map(len).agg(lambda x: normalize(np.array([x]) ** self.temperature_power, norm='l1')[0])
         self.negative_sample_sizes = list(map(len, np.array_split(np.ones(self.n_negatives).astype(int), self.n_positives)))
+        self.responses = pd.Series(responses) if responses else None
 
     def __iter__(self):
         self.negatives_weighter.setup(self.model, queries=self.queries.to_dict(), corpus=self.corpus.to_dict(), rel_queries=self.neg_rel_queries.to_dict())
@@ -54,10 +58,15 @@ class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
                     available_docs.update(n_ids)
 
                 labels.extend(n_ids)
-                yield IRInputExample(queries=[self.queries[q_id] for q_id in q_ids], documents=([self.corpus[d_id]] + [self.corpus[d_id] for d_id in n_ids]), label=batch_num, query_first=True, labels=labels)
+                yield IRInputExample(queries=[self.queries[q_id] for q_id in q_ids], documents=([self.get_document_text[d_id]] + [self.get_document_text[d_id] for d_id in n_ids]), label=batch_num, query_first=True, labels=labels)
 
     def __len__(self):
         return len(self.queries) // self.n_positives
+
+    def get_document_text(self, d_id):
+        if self.responses is None:
+            return self.self.corpus[d_id]
+        return self.responses[random.sample(self.rel_queries[d_id], 1)[0]] if random.random() > self.template_weight else self.corpus[d_id]
 
     def positives_sample_generator(self, d_ids, available_docs):
         u_ids = dict(zip(*np.unique(d_ids.keys(), return_counts=True)))
@@ -80,8 +89,8 @@ class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
 
 
 class InvertedRoundRobinBalancedRankingSimilarityDataset(InvertedRoundRobinRankingSimilarityDataset):
-    def __init__(self, model, queries, corpus, rel_queries, rel_corpus, negatives_weighter, batch_size=32, n_positives=1, temperature=1, shuffle=True, n_negatives=0, neg_rel_queries=None, top_k_sampling=False, random_p_sampling=True):
-        super().__init__(model=model, queries=queries, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_corpus, negatives_weighter=negatives_weighter, batch_size=batch_size, n_positives=n_positives, temperature=temperature, shuffle=shuffle, n_negatives=n_negatives, neg_rel_queries=neg_rel_queries, top_k_sampling=top_k_sampling, random_p_sampling=random_p_sampling, replace=False)
+    def __init__(self, model, queries, corpus, rel_queries, rel_corpus, negatives_weighter, batch_size=32, n_positives=1, temperature=1, shuffle=True, n_negatives=0, neg_rel_queries=None, top_k_sampling=False, random_p_sampling=True, responses=None, template_weight=0.15):
+        super().__init__(model=model, queries=queries, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_corpus, negatives_weighter=negatives_weighter, batch_size=batch_size, n_positives=n_positives, temperature=temperature, shuffle=shuffle, n_negatives=n_negatives, neg_rel_queries=neg_rel_queries, top_k_sampling=top_k_sampling, random_p_sampling=random_p_sampling, replace=False, responses=responses, template_weight=template_weight)
         self.query_weights = self.weights
         self.weights = np.ones_like(self.rel_queries)
         self.counts = self.rel_queries.map(len)
@@ -97,8 +106,8 @@ class InvertedRoundRobinBalancedRankingSimilarityDataset(InvertedRoundRobinRanki
 
 
 class ExpandedInvertedRoundRobinBalancedRankingSimilarityDataset(InvertedRoundRobinBalancedRankingSimilarityDataset):
-    def __init__(self, model, queries, corpus, rel_queries, rel_corpus, negatives_weighter, batch_size=32, n_positives=1, temperature=1, shuffle=True, n_negatives=0, neg_rel_queries=None, top_k_sampling=False, random_p_sampling=True, expanded_prob=0.1):
-        super().__init__(model=model, queries=queries, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_corpus, negatives_weighter=negatives_weighter, batch_size=batch_size, n_positives=n_positives, temperature=temperature, shuffle=shuffle, n_negatives=n_negatives, neg_rel_queries=neg_rel_queries, top_k_sampling=top_k_sampling, random_p_sampling=random_p_sampling)
+    def __init__(self, model, queries, corpus, rel_queries, rel_corpus, negatives_weighter, batch_size=32, n_positives=1, temperature=1, shuffle=True, n_negatives=0, neg_rel_queries=None, top_k_sampling=False, random_p_sampling=True, expanded_prob=0.1, responses=None, template_weight=0.15):
+        super().__init__(model=model, queries=queries, corpus=corpus, rel_queries=rel_queries, rel_corpus=rel_corpus, negatives_weighter=negatives_weighter, batch_size=batch_size, n_positives=n_positives, temperature=temperature, shuffle=shuffle, n_negatives=n_negatives, neg_rel_queries=neg_rel_queries, top_k_sampling=top_k_sampling, random_p_sampling=random_p_sampling, responses=responses, template_weight=template_weight)
         self.expanded_prob = expanded_prob
         self.neg_queries = self.rel_queries[~self.rel_queries.index.isin(self.neg_rel_queries.index)]
         self.expansion_size = int(self.batch_size * expanded_prob)
