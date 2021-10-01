@@ -58,7 +58,7 @@ class InvertedRoundRobinRankingSimilarityDataset(IterableDataset):
                     available_docs.update(n_ids)
 
                 labels.extend(n_ids)
-                yield IRInputExample(queries=[self.queries[q_id] for q_id in q_ids], documents=([self.get_document_text[d_id]] + [self.get_document_text[d_id] for d_id in n_ids]), label=batch_num, query_first=True, labels=labels)
+                yield IRInputExample(queries=[self.queries[q_id] for q_id in q_ids], documents=([self.get_document_text(d_id)] + [self.get_document_text(d_id) for d_id in n_ids]), label=batch_num, query_first=True, labels=labels)
 
     def __len__(self):
         return len(self.queries) // self.n_positives
