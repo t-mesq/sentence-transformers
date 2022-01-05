@@ -18,7 +18,7 @@ class EarlyStopper:
         self.patience = patience
         self.sign = -1 if min_score else 1
         self.epochs_since_max = 0
-        self.max_score = 0
+        self.max_score = -float('inf')
 
     def __call__(self, metric_scores: MetricsScore, epochs, steps):
         score = metric_scores.score * self.sign
