@@ -10,7 +10,7 @@ class EarlyStoppingException(Exception):
     """
 
     def __init__(self, patience, max_score):
-        super().__init__(f'The model did not surpass the score {max_score: f.2}, after {patience} epochs')
+        super().__init__(f'The model did not surpass the score {max_score:.3f}, after {patience} epochs')
 
 
 class EarlyStopper:
